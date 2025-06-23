@@ -1,8 +1,7 @@
 import React from 'react';
-import { View, Dimensions, StyleSheet, Animated, ScrollView } from 'react-native';
-import { Text, Surface, ProgressBar, useTheme } from 'react-native-paper';
-import { LineChart } from 'react-native-chart-kit';
-import { format, eachDayOfInterval, startOfWeek, endOfWeek, subDays } from 'date-fns';
+import { View, StyleSheet } from 'react-native';
+import { Text, Surface, useTheme } from 'react-native-paper';
+import { format, eachDayOfInterval, startOfWeek, endOfWeek, subDays, parseISO, getHours } from 'date-fns';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Meal } from '../../../hooks/useMeals';
 
@@ -12,35 +11,23 @@ interface Props {
   calorieGoal: number;
 }
 
-interface ChartDataset {
-  data: number[];
-  color?: (opacity: number) => string;
-  withDots?: boolean;
+interface TimeDistribution {
+  morning: number;   // 6-11
+  afternoon: number; // 11-17
+  evening: number;   // 17-22
+  night: number;     // 22-6
 }
 
-interface ChartData {
-  labels: string[];
-  datasets: ChartDataset[];
-}
-
-type IconName = 'chart-timeline-variant' | 'target' | 'arrow-up-bold' | 'arrow-down-bold';
-
-interface StatItem {
-  icon: IconName;
-  value: string;
-  label: string;
-  color: string;
+interface MealSize {
+  small: number;  // <300 cal
+  medium: number; // 300-600 cal
+  large: number;  // >600 cal
 }
 
 export const CaloriesChart = ({ meals, dateFilter, calorieGoal = 2000 }: Props) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-
   const theme = useTheme();
-
-  const screenWidth = Dimensions.get('window').width;
-  const chartWidth = screenWidth - 48; // Adjust for margins
-  const chartHeight = 180; // Reduced height
 
   // Get date range based on filter
   const getDateRange = () => {
@@ -65,7 +52,7 @@ export const CaloriesChart = ({ meals, dateFilter, calorieGoal = 2000 }: Props) 
 
   const dateRange = getDateRange();
 
-  // Group meals by date and calculate meal type distribution
+  // Group meals by date
   const mealsByDate = meals.reduce((acc, meal) => {
     const date = meal.date;
     if (!acc[date]) {
@@ -85,188 +72,110 @@ export const CaloriesChart = ({ meals, dateFilter, calorieGoal = 2000 }: Props) 
   const totalCalories = Object.values(mealsByDate).reduce((sum, day) => sum + day.total, 0);
   const daysWithMeals = Object.keys(mealsByDate).length || 1;
   const dailyAverage = totalCalories / daysWithMeals;
-  const maxCalories = Math.max(...Object.values(mealsByDate).map(day => day.total), 0);
-  const minCalories = Math.min(...Object.values(mealsByDate).filter(day => day.total > 0).map(day => day.total), calorieGoal);
   const goalDifference = dailyAverage - calorieGoal;
   const goalAchievement = (dailyAverage / calorieGoal) * 100;
 
-  // Calculate streak of days meeting goal
-  let currentStreak = 0;
-  let bestStreak = 0;
-  let tempStreak = 0;
-  dateRange.forEach(date => {
-    const dateStr = format(date, 'yyyy-MM-dd');
-    const dayTotal = mealsByDate[dateStr]?.total || 0;
-    if (Math.abs(dayTotal - calorieGoal) / calorieGoal <= 0.1) { // Within 10% of goal
-      tempStreak++;
-      bestStreak = Math.max(bestStreak, tempStreak);
-      if (date <= today) {
-        currentStreak = tempStreak;
-      }
-    } else {
-      tempStreak = 0;
-    }
-  });
-
-  // Prepare chart data
-  const chartData: ChartData = {
-    labels: dateRange.map(date => format(date, dateRange.length > 2 ? 'EEE' : 'MMM d')),
-    datasets: [{
-      data: dateRange.map(date => {
-        const dateStr = format(date, 'yyyy-MM-dd');
-        return mealsByDate[dateStr]?.total || 0;
-      }),
-    }],
+  const getProgressColor = (calories: number) => {
+    const ratio = calories / calorieGoal;
+    if (ratio > 1.1) return '#E74C3C'; // Too much
+    if (ratio >= 0.9 && ratio <= 1.1) return '#2ECC71'; // Just right
+    if (ratio >= 0.7) return '#F1C40F'; // Getting there
+    return '#95A5A6'; // Too low
   };
 
-  // Add goal line
-  if (dateRange.length > 1) {
-    chartData.datasets.push({
-      data: new Array(dateRange.length).fill(calorieGoal),
-      color: (opacity = 1) => `rgba(231, 76, 60, ${opacity})`,
-      withDots: false,
-    });
-  }
+  // Calculate time-based distribution
+  const getMealTypeTime = (type: string): number => {
+    switch (type) {
+      case 'breakfast': return 8;  // 8 AM
+      case 'lunch': return 13;     // 1 PM
+      case 'dinner': return 19;    // 7 PM
+      case 'snack': return 15;     // 3 PM
+      default: return 12;          // Default to noon
+    }
+  };
 
-  const statItems: StatItem[] = [
-    {
-      icon: 'chart-timeline-variant',
-      value: Math.round(dailyAverage).toLocaleString(),
-      label: 'Daily Average',
-      color: '#006A6A',
-    },
-    {
-      icon: 'target',
-      value: calorieGoal.toLocaleString(),
-      label: 'Daily Goal',
-      color: '#E74C3C',
-    },
-    {
-      icon: goalDifference > 0 ? 'arrow-up-bold' : 'arrow-down-bold',
-      value: `${Math.abs(Math.round(goalDifference)).toLocaleString()}`,
-      label: `${goalDifference > 0 ? 'Above' : 'Below'} Goal`,
-      color: goalDifference > 0 ? '#E74C3C' : '#2ECC71',
-    },
-  ];
+  // Calculate peak eating times based on meal type
+  const peakMealTimes = meals.reduce((acc, meal) => {
+    const hour = getMealTypeTime(meal.meal_type);
+    acc[hour] = (acc[hour] || 0) + Number(meal.calories || 0);
+    return acc;
+  }, {} as Record<number, number>);
+
+  const getPeakMealTime = () => {
+    const maxHour = Object.entries(peakMealTimes)
+      .sort(([, a], [, b]) => b - a)[0];
+    if (!maxHour) return 'N/A';
+    
+    // Format the hour to AM/PM
+    const hour = parseInt(maxHour[0]);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const formattedHour = hour % 12 || 12;
+    return `${formattedHour}:00 ${ampm}`;
+  };
+
+  // Analyze meal sizes
+  const mealSizes = meals.reduce((acc, meal) => {
+    const calories = Number(meal.calories || 0);
+
+    if (calories < 300) acc.small++;
+    else if (calories <= 600) acc.medium++;
+    else acc.large++;
+
+    return acc;
+  }, { small: 0, medium: 0, large: 0 } as MealSize);
 
   return (
-    <View>
-      <Surface style={styles.summaryCard}>
-        {statItems.map((item, index) => (
-          <View key={index} style={styles.summaryItem}>
+    <View style={styles.container}>
+      {/* Stats Cards */}
+      <Surface style={styles.statsCard}>
+        <View style={styles.statsGrid}>
+          <View style={styles.statItem}>
+            <MaterialCommunityIcons name="chart-timeline-variant" size={24} color="#666666" />
+            <Text style={styles.statLabel}>Daily Average</Text>
+            <Text style={styles.statValue}>{Math.round(dailyAverage)} cal</Text>
+          </View>
+
+          <View style={styles.statItem}>
             <MaterialCommunityIcons
-              name={item.icon}
+              name={goalAchievement >= 90 ? "target" : "target-variant"} 
               size={24}
-              color={item.color}
-              style={styles.icon}
+              color="#666666" 
             />
-            <Text variant="titleLarge" style={[styles.summaryValue, { color: item.color }]}>
-              {item.value}
-            </Text>
-            <Text variant="bodyMedium" style={styles.label}>{item.label}</Text>
+            <Text style={styles.statLabel}>Goal Progress</Text>
+            <Text style={styles.statValue}>{Math.round(goalAchievement)}%</Text>
           </View>
-        ))}
-      </Surface>
 
-      <Surface style={styles.progressCard}>
-        <View style={styles.progressHeader}>
-          <Text variant="titleMedium" style={styles.progressTitle}>
-            Goal Progress
-          </Text>
-          <Text variant="bodyLarge" style={[
-            styles.progressPercentage,
-            { color: Math.abs(100 - goalAchievement) <= 10 ? '#4CAF50' : '#E74C3C' }
-          ]}>
-            {Math.round(goalAchievement)}%
-          </Text>
+          <View style={styles.statItem}>
+            <MaterialCommunityIcons 
+              name={goalDifference > 0 ? "trending-up" : "trending-down"} 
+              size={24} 
+              color="#666666" 
+            />
+            <Text style={styles.statLabel}>vs Goal</Text>
+            <Text style={styles.statValue}>{Math.abs(Math.round(goalDifference))} cal</Text>
         </View>
-        <View style={styles.progressBarContainer}>
-          <View
-            style={[
-              styles.progressBarFill,
-              {
-                width: `${Math.min(goalAchievement, 100)}%`,
-                backgroundColor: Math.abs(100 - goalAchievement) <= 10 ? '#4CAF50' : '#E74C3C'
-              }
-            ]}
-          />
-        </View>
-        <View style={styles.streakContainer}>
-          <Text variant="bodySmall" style={styles.streakText}>
-            Current Streak: {currentStreak} day{currentStreak !== 1 ? 's' : ''}
-          </Text>
-          <Text variant="bodySmall" style={styles.streakText}>
-            Best Streak: {bestStreak} day{bestStreak !== 1 ? 's' : ''}
-          </Text>
         </View>
       </Surface>
 
-      <Surface style={styles.chartCard}>
-        <Text variant="titleMedium" style={styles.chartTitle}>Calorie Trends</Text>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chartScrollContainer}
-        >
-          <LineChart
-            data={chartData}
-            width={dateRange.length > 3 ? Math.max(chartWidth, dateRange.length * 60) : chartWidth}
-            height={chartHeight}
-            chartConfig={{
-              backgroundColor: '#ffffff',
-              backgroundGradientFrom: '#ffffff',
-              backgroundGradientTo: '#ffffff',
-              decimalPlaces: 0,
-              color: (opacity = 1) => `rgba(0, 106, 106, ${opacity})`,
-              labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-              propsForDots: {
-                r: '4',
-                strokeWidth: '2',
-                stroke: '#006A6A',
-              },
-              propsForBackgroundLines: {
-                strokeDasharray: '',
-                strokeWidth: 1,
-              },
-              formatYLabel: (value) => Math.round(Number(value)).toString(),
-              formatXLabel: (label) => label.substring(0, 3),
-              count: 5, // Number of Y-axis labels
-            }}
-            bezier
-            style={styles.chart}
-            withInnerLines={true}
-            withOuterLines={true}
-            withVerticalLines={false}
-            withHorizontalLines={true}
-            withVerticalLabels={true}
-            withHorizontalLabels={true}
-            fromZero={true}
-            yAxisLabel=""
-            yAxisSuffix=" cal"
-            segments={5}
-          />
-        </ScrollView>
-
-        {dateRange.length > 1 && (
-          <View style={styles.chartFooter}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#006A6A' }]} />
-              <Text style={styles.legendText}>Daily Calories</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#E74C3C' }]} />
-              <Text style={styles.legendText}>Goal</Text>
-            </View>
+      {/* Eating Patterns Card */}
+      <Surface style={styles.patternCard}>
+        <Text variant="titleMedium" style={styles.title}>Eating Patterns</Text>
+        
+        <View style={styles.patternGrid}>
+          <View style={styles.patternItem}>
+            <MaterialCommunityIcons name="clock-outline" size={24} color="#666666" />
+            <Text style={styles.patternLabel}>Peak Time</Text>
+            <Text style={styles.patternValue}>{getPeakMealTime()}</Text>
           </View>
-        )}
 
-        <View style={styles.statsContainer}>
-          <Text variant="bodySmall" style={styles.statsText}>
-            Highest: {maxCalories.toLocaleString()} kcal
+          <View style={styles.patternItem}>
+            <MaterialCommunityIcons name="food-outline" size={24} color="#666666" />
+            <Text style={styles.patternLabel}>Most Common</Text>
+            <Text style={styles.patternValue}>
+              {Object.entries(mealSizes)
+                .sort(([, a], [, b]) => b - a)[0][0]} meals
           </Text>
-          <Text variant="bodySmall" style={styles.statsText}>
-            Lowest: {minCalories.toLocaleString()} kcal
-          </Text>
+          </View>
         </View>
       </Surface>
     </View>
@@ -274,113 +183,65 @@ export const CaloriesChart = ({ meals, dateFilter, calorieGoal = 2000 }: Props) 
 };
 
 const styles = StyleSheet.create({
-  summaryCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 16,
+  container: {
+    gap: 16,
+  },
+  statsCard: {
     borderRadius: 12,
-    elevation: 2,
+    padding: 16,
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
   },
-  summaryItem: {
+  statsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statItem: {
     alignItems: 'center',
+    flex: 1,
   },
-  icon: {
-    marginBottom: 4,
-  },
-  summaryValue: {
-    marginVertical: 4,
-    fontWeight: '600',
-  },
-  label: {
-    color: '#666',
+  statLabel: {
+    fontSize: 12,
+    color: '#666666',
+    marginTop: 4,
     textAlign: 'center',
   },
-  progressCard: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 16,
-    borderRadius: 12,
-    elevation: 2,
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  progressTitle: {
-    color: '#666',
-  },
-  progressPercentage: {
+  statValue: {
+    fontSize: 16,
     fontWeight: '600',
+    color: '#1A1A1A',
+    marginTop: 2,
   },
-  progressBarContainer: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#E0E0E0',
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  streakContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 12,
-  },
-  streakText: {
-    color: '#666',
-  },
-  chartCard: {
-    margin: 16,
-    padding: 16,
+  patternCard: {
     borderRadius: 12,
-    elevation: 2,
+    padding: 16,
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
   },
-  chartTitle: {
-    color: '#666',
+  title: {
+    color: '#1A1A1A',
+    fontWeight: '600',
     marginBottom: 16,
   },
-  chartScrollContainer: {
-    paddingRight: 16,
-  },
-  chart: {
-    marginVertical: 8,
-    borderRadius: 16,
-  },
-  chartFooter: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 8,
-    paddingHorizontal: 16,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 12,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-  legendText: {
-    color: '#666',
-    fontSize: 12,
-  },
-  statsContainer: {
+  patternGrid: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
   },
-  statsText: {
-    color: '#666',
+  patternItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  patternLabel: {
+    fontSize: 12,
+    color: '#666666',
+    marginTop: 4,
+  },
+  patternValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1A1A1A',
+    marginTop: 2,
   },
 }); 

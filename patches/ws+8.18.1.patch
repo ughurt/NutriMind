@@ -1,0 +1,52 @@
+diff --git a/node_modules/ws/lib/websocket.js b/node_modules/ws/lib/websocket.js
+index 7fb4029..b2c0f22 100644
+--- a/node_modules/ws/lib/websocket.js
++++ b/node_modules/ws/lib/websocket.js
+@@ -5,8 +5,17 @@
+ const EventEmitter = require('events');
+ const https = require('https');
+ const http = require('http');
+-const net = require('net');
+-const tls = require('tls');
++// Use conditional import for Node.js native modules
++let net;
++let tls;
++try {
++  if (typeof process !== 'undefined' && process.versions && process.versions.node) {
++    net = require('net');
++    tls = require('tls');
++  }
++} catch (e) {
++  // In React Native, these modules are not available
++}
+ const { randomBytes, createHash } = require('crypto');
+ const { Duplex, Readable } = require('stream');
+ const { URL } = require('url');
+@@ -1043,13 +1052,16 @@ function emitErrorAndClose(websocket, err) {
+ }
+ 
+ /**
+- * Create a `net.Socket` and initiate a connection.
++ * Create a net.Socket and initiate a connection.
+  *
+  * @param {Object} options Connection options
+  * @return {net.Socket} The newly created socket used to start the connection
+  * @private
+  */
+ function netConnect(options) {
++  if (!net) {
++    throw new Error('The net module is not available in this environment');
++  }
+   options.path = options.socketPath;
+   return net.connect(options);
+ }
+@@ -1062,6 +1074,9 @@ function netConnect(options) {
+  * @private
+  */
+ function tlsConnect(options) {
++  if (!tls || !net) {
++    throw new Error('The tls/net modules are not available in this environment');
++  }
+   options.path = undefined;
+ 
+   if (!options.servername && options.servername !== '') {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Platform, Dimensions } from 'react-native';
 import { 
   Surface, 
   Text, 
@@ -8,10 +8,12 @@ import {
   Switch, 
   Button, 
   Portal, 
-  Modal,
   Divider,
   IconButton,
-  useTheme
+  useTheme,
+  Card,
+  TouchableRipple,
+  ProgressBar
 } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -22,6 +24,8 @@ import { EditGoalsForm } from './components/EditGoalsForm';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { GoalItem } from '../../components/GoalItem';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 
 interface AppSettings {
   darkMode: boolean;
@@ -104,6 +108,7 @@ export const ProfileScreen = () => {
       newSettings.darkMode = value as boolean;
     }
     saveSettings(newSettings);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const handleDismissGoalsForm = async () => {
@@ -123,272 +128,405 @@ export const ProfileScreen = () => {
     }
   };
 
+  const renderSettingSwitch = (
+    title: string, 
+    description: string, 
+    icon: string, 
+    value: boolean,
+    onToggle: (value: boolean) => void
+  ) => {
+    return (
+      <Card style={styles.settingCard}>
+        <TouchableRipple onPress={() => onToggle(!value)}>
+          <View style={styles.settingRow}>
+            <View style={[styles.iconContainer, { backgroundColor: `${theme.colors.primary}15` }]}>
+              <MaterialCommunityIcons name={icon as any} size={22} color={theme.colors.primary} />
+            </View>
+            <View style={styles.settingInfo}>
+              <Text variant="titleMedium">{title}</Text>
+              <Text variant="bodySmall" style={styles.settingDescription}>{description}</Text>
+            </View>
+            <Switch 
+              value={value} 
+              onValueChange={onToggle}
+              color={theme.colors.primary}
+            />
+          </View>
+        </TouchableRipple>
+      </Card>
+    );
+  };
+
+  const renderSettingAction = (title: string, description: string, icon: string, onPress: () => void) => {
+    return (
+      <Card style={styles.settingCard}>
+        <TouchableRipple onPress={onPress}>
+          <View style={styles.settingRow}>
+            <View style={[styles.iconContainer, { backgroundColor: `${theme.colors.primary}15` }]}>
+              <MaterialCommunityIcons name={icon as any} size={22} color={theme.colors.primary} />
+            </View>
+            <View style={styles.settingInfo}>
+              <Text variant="titleMedium">{title}</Text>
+              <Text variant="bodySmall" style={styles.settingDescription}>{description}</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={24} color="#999" />
+          </View>
+        </TouchableRipple>
+      </Card>
+    );
+  };
+
   return (
-    <ScrollView style={styles.container}>
-      {/* Profile Header Surface */}
-      <Surface style={styles.headerSurface}>
+    <View style={styles.container}>
+      {/* Header */}
+      <Surface style={styles.header} elevation={0}>
         <View style={styles.headerContent}>
-          <View style={styles.avatarContainer}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.headerTitle}>Profile</Text>
+            <Text style={styles.headerSubtitle}>Account Settings</Text>
+          </View>
+        </View>
+      </Surface>
+
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* User Info Card */}
+        <Surface style={styles.userInfoSurface} elevation={0}>
+          <View style={styles.userInfoContainer}>
+            <View style={styles.avatarWrapper}>
             <Avatar.Image
               size={80}
-              source={{ uri: user?.user_metadata?.avatar_url || 'https://ui-avatars.com/api/?name=' + user?.email }}
+                source={{ uri: user?.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${user?.email?.charAt(0)}&background=006A6A&color=fff&size=256` }}
+                style={styles.avatar}
             />
+              <View style={styles.editAvatarContainer}>
             <IconButton
               icon="camera"
-              size={20}
+                  size={16}
+                  iconColor="white"
               style={styles.editAvatarButton}
               onPress={() => {/* TODO: Implement avatar change */}}
             />
           </View>
-          <View style={styles.headerText}>
-            <Text variant="headlineSmall">{user?.user_metadata?.full_name || user?.email}</Text>
-            <Text variant="bodyLarge" style={styles.joinedText}>
-              Joined {new Date(user?.created_at || '').toLocaleDateString()}
+            </View>
+            <View style={styles.userInfo}>
+              <Text style={styles.userName}>{user?.user_metadata?.full_name || user?.email}</Text>
+              <Text style={styles.userEmail}>{user?.email}</Text>
+              <View style={styles.memberSince}>
+                <MaterialCommunityIcons name="calendar-check" size={14} color="#666" />
+                <Text style={styles.memberSinceText}>
+                  Member since {new Date(user?.created_at || '').toLocaleDateString()}
             </Text>
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Text variant="labelLarge">{goals.length}</Text>
-                <Text variant="bodySmall">Goals</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Text variant="labelLarge">0</Text>
-                <Text variant="bodySmall">Achievements</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Text variant="labelLarge">0</Text>
-                <Text variant="bodySmall">Days Active</Text>
               </View>
             </View>
           </View>
+        </Surface>
+        
+        {/* User Stats */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <View style={styles.statContent}>
+              <Text style={styles.statValue}>{goals.length}</Text>
+              <Text style={styles.statLabel}>Goals</Text>
+            </View>
+              </View>
+              <View style={styles.statDivider} />
+          <View style={styles.statCard}>
+            <View style={styles.statContent}>
+              <Text style={styles.statValue}>0</Text>
+              <Text style={styles.statLabel}>Achievements</Text>
+            </View>
+              </View>
+              <View style={styles.statDivider} />
+          <View style={styles.statCard}>
+            <View style={styles.statContent}>
+              <Text style={styles.statValue}>0</Text>
+              <Text style={styles.statLabel}>Days Active</Text>
+            </View>
+          </View>
         </View>
-      </Surface>
 
-      {/* Nutrition Goals Section */}
-      <Surface style={styles.sectionSurface}>
-        <View style={styles.sectionContent}>
+        {/* Goals Section */}
+        <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text variant="titleMedium">Nutrition Goals</Text>
+            <View style={styles.sectionTitleContainer}>
+              <MaterialCommunityIcons name="target" size={22} color="#006A6A" />
+              <Text variant="titleMedium" style={styles.sectionTitle}>Nutrition Goals</Text>
+            </View>
             <Button 
-              mode="contained" 
-              onPress={() => setEditGoalsVisible(true)}
-              style={styles.addButton}
+              mode="contained-tonal" 
+              onPress={() => {
+                setEditGoalsVisible(true);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+              style={styles.editButton}
+              contentStyle={styles.buttonContent}
+              icon="pencil"
             >
-              Edit Goals
+              Edit
             </Button>
           </View>
-          <View style={styles.goalsGrid}>
+
             {goals.length > 0 ? (
-              <>
+            <View style={styles.goalsContainer}>
                 {goals.map((goal) => (
                   <GoalItem key={goal.id} goal={goal} />
                 ))}
-                {goals.length % 2 === 1 && <View style={styles.emptyGridItem} />}
-              </>
-            ) : (
-              <Text style={styles.emptyText}>No goals set yet</Text>
-            )}
-          </View>
+            </View>
+          ) : (
+            <Card style={styles.emptyCard} elevation={0}>
+              <Card.Content style={styles.emptyContent}>
+                <MaterialCommunityIcons name="target-account" size={40} color="#CCC" />
+                <Text style={styles.emptyText}>No nutrition goals set yet</Text>
+                <Button
+                  mode="outlined"
+                  onPress={() => setEditGoalsVisible(true)}
+                  style={styles.addGoalButton}
+                  icon="plus"
+                >
+                  Add Goals
+                </Button>
+              </Card.Content>
+            </Card>
+          )}
         </View>
-      </Surface>
 
       {/* Settings Section */}
-      <Surface style={styles.sectionSurface}>
-        <View style={styles.sectionContent}>
+        <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text variant="titleMedium">Settings</Text>
+            <View style={styles.sectionTitleContainer}>
+              <MaterialCommunityIcons name="cog" size={22} color="#006A6A" />
+              <Text variant="titleMedium" style={styles.sectionTitle}>Settings</Text>
+            </View>
           </View>
           
-          <Text variant="labelSmall" style={styles.settingsLabel}>Appearance</Text>
-          <List.Item
-            title="Dark Mode"
-            description="Switch between light and dark theme"
-            left={props => <List.Icon {...props} icon="theme-light-dark" />}
-            right={() => (
-              <Switch
-                value={settings.darkMode}
-                onValueChange={value => handleSettingChange('darkMode', 'darkMode', value)}
-              />
+          <Text style={styles.settingsCategoryLabel}>Appearance</Text>
+          {renderSettingSwitch(
+            "Dark Mode", 
+            "Switch between light and dark theme", 
+            "theme-light-dark", 
+            settings.darkMode,
+            (value) => handleSettingChange('darkMode', 'darkMode', value)
             )}
-          />
-          <Divider />
           
-          <Text variant="labelSmall" style={styles.settingsLabel}>Notifications</Text>
-          <List.Item
-            title="Push Notifications"
-            description="Receive reminders and updates"
-            left={props => <List.Icon {...props} icon="bell-outline" />}
-            right={() => (
-              <Switch
-                value={settings.notifications.push}
-                onValueChange={value => handleSettingChange('notifications', 'push', value)}
-              />
+          <Text style={styles.settingsCategoryLabel}>Notifications</Text>
+          {renderSettingSwitch(
+            "Push Notifications", 
+            "Receive reminders and updates", 
+            "bell-outline", 
+            settings.notifications.push,
+            (value) => handleSettingChange('notifications', 'push', value)
+          )}
+          {renderSettingSwitch(
+            "Meal Reminders", 
+            "Get reminded to log your meals", 
+            "food-outline", 
+            settings.notifications.meals,
+            (value) => handleSettingChange('notifications', 'meals', value)
+          )}
+          {renderSettingSwitch(
+            "Activity Alerts", 
+            "Alerts for inactivity periods", 
+            "walk", 
+            settings.notifications.activity,
+            (value) => handleSettingChange('notifications', 'activity', value)
             )}
-          />
-          <List.Item
-            title="Meal Reminders"
-            description="Get reminded to log your meals"
-            left={props => <List.Icon {...props} icon="food-outline" />}
-            right={() => (
-              <Switch
-                value={settings.notifications.meals}
-                onValueChange={value => handleSettingChange('notifications', 'meals', value)}
-              />
-            )}
-          />
-          <List.Item
-            title="Activity Alerts"
-            description="Alerts for inactivity periods"
-            left={props => <List.Icon {...props} icon="walk" />}
-            right={() => (
-              <Switch
-                value={settings.notifications.activity}
-                onValueChange={value => handleSettingChange('notifications', 'activity', value)}
-              />
-            )}
-          />
-          <Divider />
           
-          <Text variant="labelSmall" style={styles.settingsLabel}>Data Management</Text>
-          <List.Item
-            title="Export Data"
-            description="Download your nutrition and activity data"
-            left={props => <List.Icon {...props} icon="download" />}
-            onPress={() => {/* TODO: Implement export */}}
-          />
-          <List.Item
-            title="Sync Settings"
-            description="Manage data synchronization"
-            left={props => <List.Icon {...props} icon="sync" />}
-            onPress={() => {/* TODO: Implement sync settings */}}
-          />
-          <List.Item
-            title="Clear Data"
-            description="Delete all app data"
-            left={props => <List.Icon {...props} icon="delete-outline" />}
-            onPress={() => {/* TODO: Implement data clearing */}}
-          />
-        </View>
-      </Surface>
+          <Text style={styles.settingsCategoryLabel}>Account</Text>
+          {renderSettingAction(
+            "Edit Profile", 
+            "Update your personal information", 
+            "account-edit", 
+            () => {/* TODO: Implement edit profile */}
+          )}
+          {renderSettingAction(
+            "Change Password", 
+            "Update your account password", 
+            "lock-reset", 
+            () => {/* TODO: Implement password change */}
+          )}
+          {renderSettingAction(
+            "Privacy Settings", 
+            "Manage your privacy preferences", 
+            "shield-account", 
+            () => {/* TODO: Show privacy settings */}
+          )}
 
-      {/* Account Section */}
-      <Surface style={styles.sectionSurface}>
-        <View style={styles.sectionContent}>
-          <View style={styles.sectionHeader}>
-            <Text variant="titleMedium">Account</Text>
-          </View>
-          <List.Item
-            title="Edit Profile"
-            description="Update your personal information"
-            left={props => <List.Icon {...props} icon="account-edit" />}
-            onPress={() => {/* TODO: Implement edit profile */}}
-          />
-          <List.Item
-            title="Change Password"
-            description="Update your account password"
-            left={props => <List.Icon {...props} icon="lock-reset" />}
-            onPress={() => {/* TODO: Implement password change */}}
-          />
-          <List.Item
-            title="Privacy Settings"
-            description="Manage your privacy preferences"
-            left={props => <List.Icon {...props} icon="shield-account" />}
-            onPress={() => {/* TODO: Show privacy settings */}}
-          />
-          <List.Item
-            title="Help & Support"
-            description="Get help with using the app"
-            left={props => <List.Icon {...props} icon="help-circle" />}
-            onPress={() => {/* TODO: Show help section */}}
-          />
+          <Text style={styles.settingsCategoryLabel}>Data</Text>
+          {renderSettingAction(
+            "Export Data", 
+            "Download your nutrition and activity data", 
+            "download", 
+            () => {/* TODO: Implement export */}
+          )}
+          {renderSettingAction(
+            "Clear Data", 
+            "Delete all app data", 
+            "delete-outline", 
+            () => {/* TODO: Implement data clearing */}
+          )}
         </View>
-      </Surface>
 
       <Button 
         mode="outlined" 
-        onPress={handleSignOut}
+          onPress={() => {
+            handleSignOut();
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          }}
         style={styles.signOutButton}
         icon="logout"
+          textColor="#f44336"
       >
         Sign Out
       </Button>
+      </ScrollView>
 
       <Portal>
-        <Modal
+        <EditGoalsForm 
           visible={editGoalsVisible}
-          onDismiss={handleDismissGoalsForm}
-          contentContainerStyle={styles.modal}
-        >
-          <EditGoalsForm 
             onDismiss={handleDismissGoalsForm}
             currentGoals={goals}
           />
-        </Modal>
       </Portal>
-    </ScrollView>
+    </View>
   );
 };
+
+const { width: windowWidth } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f9fa',
   },
-  headerSurface: {
-    margin: 16,
-    elevation: 4,
-    borderRadius: 12,
+  header: {
+    backgroundColor: '#FFFFFF',
+    paddingTop: Platform.OS === 'ios' ? 12 : 8,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
   },
   headerContent: {
-    padding: 16,
-    borderRadius: 12,
-    overflow: 'hidden',
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  avatarContainer: {
+  headerLeft: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginBottom: 2,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: '#666666',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 32,
+  },
+  userInfoSurface: {
+    margin: 16,
+    marginTop: 20,
+    borderRadius: 16,
+    padding: 16,
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+  },
+  userInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarWrapper: {
     position: 'relative',
-    marginBottom: 16,
-    alignSelf: 'center',
+    marginRight: 20,
+  },
+  avatar: {
+    borderWidth: 2,
+    borderColor: 'rgba(0, 106, 106, 0.2)',
+  },
+  editAvatarContainer: {
+    position: 'absolute',
+    right: -4,
+    bottom: -4,
   },
   editAvatarButton: {
-    position: 'absolute',
-    right: -8,
-    bottom: -8,
     backgroundColor: '#006A6A',
-    borderRadius: 12,
+    margin: 0,
+    width: 34,
+    height: 34,
+    borderWidth: 2,
+    borderColor: 'white',
   },
-  headerText: {
-    alignItems: 'center',
+  userInfo: {
+    flex: 1,
   },
-  joinedText: {
-    color: '#666',
-    marginTop: 4,
-    marginBottom: 16,
+  userName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1A1A1A',
+    marginBottom: 2,
   },
-  statsRow: {
+  userEmail: {
+    fontSize: 14,
+    color: '#666666',
+    marginBottom: 8,
+  },
+  memberSince: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-    marginTop: 8,
-  },
-  statItem: {
     alignItems: 'center',
+  },
+  memberSinceText: {
+    color: '#666666',
+    fontSize: 12,
+    marginLeft: 6,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'white',
+    borderRadius: 16,
+    marginHorizontal: 16,
+    marginTop: 8,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+  },
+  statCard: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statContent: {
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#1A1A1A',
+  },
+  statLabel: {
+    fontSize: 13,
+    color: '#666666',
+    marginTop: 4,
   },
   statDivider: {
     width: 1,
-    height: '100%',
-    backgroundColor: '#E0E0E0',
+    height: '70%',
+    backgroundColor: '#E5E5E5',
+    marginHorizontal: 8,
   },
-  sectionSurface: {
-    margin: 16,
-    marginTop: 8,
-    elevation: 4,
-    borderRadius: 12,
-  },
-  sectionContent: {
-    padding: 16,
-    borderRadius: 12,
-    overflow: 'hidden',
+  section: {
+    marginHorizontal: 16,
+    marginTop: 24,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -396,55 +534,90 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  goalSurface: {
-    marginBottom: 12,
-    elevation: 2,
-    borderRadius: 8,
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  goalContent: {
-    borderRadius: 8,
-    overflow: 'hidden',
+  sectionTitle: {
+    marginLeft: 8,
+    fontWeight: '600',
+    color: '#1A1A1A',
   },
-  goalsGrid: {
+  editButton: {
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 106, 106, 0.1)',
+  },
+  buttonContent: {
+    height: 36,
+  },
+  goalsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-    marginTop: 16,
-    marginHorizontal: -4,
+    justifyContent: 'space-between',
   },
-  addButton: {
-    backgroundColor: '#006A6A',
+  emptyCard: {
+    borderRadius: 12,
+    marginBottom: 16,
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+  },
+  emptyContent: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  emptyText: {
+    marginVertical: 12,
+    color: '#666666',
+    textAlign: 'center',
+  },
+  addGoalButton: {
+    marginTop: 8,
+    borderColor: '#006A6A',
+  },
+  settingsCategoryLabel: {
+    marginTop: 16,
+    marginBottom: 8,
+    marginLeft: 8,
+    fontSize: 13,
+    color: '#666666',
+    textTransform: 'uppercase',
+    fontWeight: '500',
+    letterSpacing: 0.5,
+  },
+  settingCard: {
+    marginBottom: 8,
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 0,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  settingInfo: {
+    flex: 1,
+  },
+  settingDescription: {
+    color: '#666666',
+    marginTop: 2,
   },
   signOutButton: {
     margin: 16,
-    marginBottom: 32,
-    marginTop: 'auto',
-  },
-  modal: {
-    backgroundColor: 'white',
-    margin: 20,
-    borderRadius: 12,
-    maxHeight: '80%',
-    width: '90%',
-    alignSelf: 'center',
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: '#666',
-    fontStyle: 'italic',
-    width: '100%',
-    padding: 16,
-  },
-  emptyGridItem: {
-    width: '48%',
-    marginHorizontal: '1%',
-  },
-  settingsLabel: {
-    color: '#666',
-    marginLeft: 16,
-    marginTop: 16,
-    marginBottom: 8,
-    textTransform: 'uppercase',
+    marginTop: 32,
+    borderColor: '#f44336',
+    borderWidth: 1.5,
   },
 });
 

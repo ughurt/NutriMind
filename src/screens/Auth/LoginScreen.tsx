@@ -31,7 +31,7 @@ const LoginScreen = ({ navigation }: Props) => {
       if (user) {
         navigation.reset({
           index: 0,
-          routes: [{ name: 'MainTabs' }],
+          routes: [{ name: 'Main' }],
         });
       }
     } catch (error: any) {

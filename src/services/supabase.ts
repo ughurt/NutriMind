@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@env';
-import { MealData } from '../types/meal';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
@@ -10,7 +9,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 
 // Meal-related functions
-export const addMeal = async (mealData: MealData) => {
+export const addMeal = async (mealData: any) => {
   const { data, error } = await supabase
     .from('meals')
     .insert([{
@@ -58,4 +57,35 @@ export const deleteMeal = async (mealId: string) => {
 
   if (error) throw error;
   return true;
+};
+
+// Shopping list functions
+export const saveShoppingList = async (items: { name: string; checked: boolean }[]) => {
+  const user = (await supabase.auth.getUser()).data.user;
+  if (!user) throw new Error('Not authenticated');
+  // Remove all previous items for this user
+  await supabase.from('shopping_list').delete().eq('user_id', user.id);
+  // Insert new items
+  const { data, error } = await supabase
+    .from('shopping_list')
+    .insert(items.map(item => ({
+      name: item.name,
+      checked: item.checked,
+      user_id: user.id,
+      created_at: new Date().toISOString(),
+    })));
+  if (error) throw error;
+  return data;
+};
+
+export const getShoppingList = async () => {
+  const user = (await supabase.auth.getUser()).data.user;
+  if (!user) throw new Error('Not authenticated');
+  const { data, error } = await supabase
+    .from('shopping_list')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data;
 }; 

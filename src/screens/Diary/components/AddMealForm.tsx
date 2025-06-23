@@ -341,209 +341,308 @@ export const AddMealForm = ({ onSave, onDismiss, initialValues, selectedMealType
 
             {activeTab === 'search' && (
               <>
-              <Searchbar
-                  placeholder="Search food database..."
-                onChangeText={(query) => {
-                  setSearchQuery(query);
-                  debouncedSearch(query);
-                }}
-                value={searchQuery}
-                style={styles.searchBar}
-                  inputStyle={styles.searchInput}
-                icon="magnify"
-                loading={searching}
-                  elevation={0}
-                />
+                <View style={styles.searchContainer}>
+                  <Searchbar
+                    placeholder="Search for a food..."
+                    onChangeText={(text) => {
+                      setSearchQuery(text);
+                      debouncedSearch(text);
+                    }}
+                    value={searchQuery}
+                    style={styles.searchBar}
+                    loading={searching}
+                  />
+                </View>
 
-                {searching && (
-                  <View style={styles.searchingContainer}>
-                    <ActivityIndicator size="small" color="#006A6A" />
-                    <Text style={styles.searchingText}>Searching database...</Text>
+                {searchQuery.trim() === '' ? (
+                  <View style={styles.sectionContent}>
+                    <View style={styles.sectionHeader}>
+                      <MaterialCommunityIcons name="history" size={20} color="#006A6A" />
+                      <Text style={styles.sectionTitle}>Recent Searches</Text>
+                    </View>
+                    {recentSearches.length === 0 ? (
+                      <View style={styles.emptyState}>
+                        <MaterialCommunityIcons name="magnify" size={32} color="#666" />
+                        <Text style={styles.emptyStateText}>No recent searches</Text>
+                        <Text style={styles.emptyStateSubtext}>
+                          Search for foods to see them here
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={styles.chipContainer}>
+                        {recentSearches.map((search) => (
+                          <Chip
+                            key={search}
+                            style={styles.chip}
+                            onPress={() => {
+                              setSearchQuery(search);
+                              debouncedSearch(search);
+                            }}
+                            icon="history"
+                          >
+                            {search}
+                          </Chip>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                ) : searching ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#006A6A" />
+                    <Text style={styles.loadingText}>Searching for "{searchQuery}"...</Text>
+                  </View>
+                ) : searchResults.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <MaterialCommunityIcons name="food-off" size={32} color="#666" />
+                    <Text style={styles.emptyStateText}>No results found</Text>
+                    <Text style={styles.emptyStateSubtext}>
+                      Try a different search term
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.sectionContent}>
+                    {/* Common Foods Section */}
+                    {searchResults.some(food => food.isCommon) && (
+                      <>
+                        <View style={styles.categorySectionHeader}>
+                          <MaterialCommunityIcons name="star" size={20} color="#006A6A" />
+                          <Text style={styles.categorySectionTitle}>Common Foods</Text>
+                        </View>
+                        <View style={styles.foodList}>
+                          {searchResults
+                            .filter(food => food.isCommon)
+                            .map((food) => (
+                              <TouchableOpacity
+                                key={food.fdcId}
+                                style={[
+                                  styles.foodCard,
+                                  selectedMealId === food.fdcId && styles.selectedFoodCard
+                                ]}
+                                onPress={() => handleFoodSelect(food)}
+                              >
+                                <View style={styles.foodCardHeader}>
+                                  <View style={[
+                                    styles.foodIconContainer,
+                                    selectedMealId === food.fdcId && styles.selectedFoodIconContainer
+                                  ]}>
+                                    <MaterialCommunityIcons 
+                                      name="food" 
+                                      size={20} 
+                                      color={selectedMealId === food.fdcId ? 'white' : '#006A6A'} 
+                                    />
+                                  </View>
+                                  <Text style={[
+                                    styles.foodTitle,
+                                    selectedMealId === food.fdcId && styles.selectedFoodTitle
+                                  ]} numberOfLines={1}>
+                                    {food.description}
+                                  </Text>
+                                </View>
+                                <View style={[
+                                  styles.macroGrid,
+                                  selectedMealId === food.fdcId && styles.selectedMacroGrid
+                                ]}>
+                                  <View style={styles.macroItem}>
+                                    <Text style={[
+                                      styles.macroValue,
+                                      selectedMealId === food.fdcId && styles.selectedMacroValue
+                                    ]}>{food.nutrients.calories}</Text>
+                                    <Text style={[
+                                      styles.macroLabel,
+                                      selectedMealId === food.fdcId && styles.selectedMacroLabel
+                                    ]}>cal</Text>
+                                  </View>
+                                  <View style={[
+                                    styles.macroDivider,
+                                    selectedMealId === food.fdcId && styles.selectedMacroDivider
+                                  ]} />
+                                  <View style={styles.macroItem}>
+                                    <Text style={[
+                                      styles.macroValue,
+                                      selectedMealId === food.fdcId && styles.selectedMacroValue
+                                    ]}>{food.nutrients.protein}g</Text>
+                                    <Text style={[
+                                      styles.macroLabel,
+                                      selectedMealId === food.fdcId && styles.selectedMacroLabel
+                                    ]}>protein</Text>
+                                  </View>
+                                  <View style={[
+                                    styles.macroDivider,
+                                    selectedMealId === food.fdcId && styles.selectedMacroDivider
+                                  ]} />
+                                  <View style={styles.macroItem}>
+                                    <Text style={[
+                                      styles.macroValue,
+                                      selectedMealId === food.fdcId && styles.selectedMacroValue
+                                    ]}>{food.nutrients.carbs}g</Text>
+                                    <Text style={[
+                                      styles.macroLabel,
+                                      selectedMealId === food.fdcId && styles.selectedMacroLabel
+                                    ]}>carbs</Text>
+                                  </View>
+                                  <View style={[
+                                    styles.macroDivider,
+                                    selectedMealId === food.fdcId && styles.selectedMacroDivider
+                                  ]} />
+                                  <View style={styles.macroItem}>
+                                    <Text style={[
+                                      styles.macroValue,
+                                      selectedMealId === food.fdcId && styles.selectedMacroValue
+                                    ]}>{food.nutrients.fat}g</Text>
+                                    <Text style={[
+                                      styles.macroLabel,
+                                      selectedMealId === food.fdcId && styles.selectedMacroLabel
+                                    ]}>fat</Text>
+                                  </View>
+                                </View>
+                                <TouchableOpacity 
+                                  style={styles.starButton}
+                                  onPress={() => toggleFavorite(food)}
+                                >
+                                  <MaterialCommunityIcons 
+                                    name={isFavorite(food.fdcId) ? "star" : "star-outline"} 
+                                    size={20} 
+                                    color={isFavorite(food.fdcId) ? "#FFB800" : "#666"} 
+                                  />
+                                </TouchableOpacity>
+                              </TouchableOpacity>
+                            ))}
+                        </View>
+                      </>
+                    )}
+
+                    {/* Group other foods by category */}
+                    {(() => {
+                      // Get all non-common foods
+                      const nonCommonFoods = searchResults.filter(food => !food.isCommon);
+                      
+                      // Group by category
+                      const foodsByCategory = nonCommonFoods.reduce((acc, food) => {
+                        const category = food.category || 'Other';
+                        if (!acc[category]) {
+                          acc[category] = [];
+                        }
+                        acc[category].push(food);
+                        return acc;
+                      }, {} as Record<string, FoodItem[]>);
+                      
+                      // Sort categories by number of items (most items first)
+                      const sortedCategories = Object.keys(foodsByCategory).sort((a, b) => 
+                        foodsByCategory[b].length - foodsByCategory[a].length
+                      );
+                      
+                      return sortedCategories.map(category => (
+                        <React.Fragment key={category}>
+                          <View style={styles.categorySectionHeader}>
+                            <MaterialCommunityIcons name="food-variant" size={20} color="#006A6A" />
+                            <Text style={styles.categorySectionTitle}>{category}</Text>
+                            <Text style={styles.categoryItemCount}>
+                              ({foodsByCategory[category].length})
+                            </Text>
+                          </View>
+                          <View style={styles.foodList}>
+                            {foodsByCategory[category].map((food) => (
+                              <TouchableOpacity
+                                key={food.fdcId}
+                                style={[
+                                  styles.foodCard,
+                                  selectedMealId === food.fdcId && styles.selectedFoodCard
+                                ]}
+                                onPress={() => handleFoodSelect(food)}
+                              >
+                                <View style={styles.foodCardHeader}>
+                                  <View style={[
+                                    styles.foodIconContainer,
+                                    selectedMealId === food.fdcId && styles.selectedFoodIconContainer
+                                  ]}>
+                                    <MaterialCommunityIcons 
+                                      name="food" 
+                                      size={20} 
+                                      color={selectedMealId === food.fdcId ? 'white' : '#006A6A'} 
+                                    />
+                                  </View>
+                                  <Text style={[
+                                    styles.foodTitle,
+                                    selectedMealId === food.fdcId && styles.selectedFoodTitle
+                                  ]} numberOfLines={1}>
+                                    {food.description}
+                                  </Text>
+                                </View>
+                                <View style={[
+                                  styles.macroGrid,
+                                  selectedMealId === food.fdcId && styles.selectedMacroGrid
+                                ]}>
+                                  <View style={styles.macroItem}>
+                                    <Text style={[
+                                      styles.macroValue,
+                                      selectedMealId === food.fdcId && styles.selectedMacroValue
+                                    ]}>{food.nutrients.calories}</Text>
+                                    <Text style={[
+                                      styles.macroLabel,
+                                      selectedMealId === food.fdcId && styles.selectedMacroLabel
+                                    ]}>cal</Text>
+                                  </View>
+                                  <View style={[
+                                    styles.macroDivider,
+                                    selectedMealId === food.fdcId && styles.selectedMacroDivider
+                                  ]} />
+                                  <View style={styles.macroItem}>
+                                    <Text style={[
+                                      styles.macroValue,
+                                      selectedMealId === food.fdcId && styles.selectedMacroValue
+                                    ]}>{food.nutrients.protein}g</Text>
+                                    <Text style={[
+                                      styles.macroLabel,
+                                      selectedMealId === food.fdcId && styles.selectedMacroLabel
+                                    ]}>protein</Text>
+                                  </View>
+                                  <View style={[
+                                    styles.macroDivider,
+                                    selectedMealId === food.fdcId && styles.selectedMacroDivider
+                                  ]} />
+                                  <View style={styles.macroItem}>
+                                    <Text style={[
+                                      styles.macroValue,
+                                      selectedMealId === food.fdcId && styles.selectedMacroValue
+                                    ]}>{food.nutrients.carbs}g</Text>
+                                    <Text style={[
+                                      styles.macroLabel,
+                                      selectedMealId === food.fdcId && styles.selectedMacroLabel
+                                    ]}>carbs</Text>
+                                  </View>
+                                  <View style={[
+                                    styles.macroDivider,
+                                    selectedMealId === food.fdcId && styles.selectedMacroDivider
+                                  ]} />
+                                  <View style={styles.macroItem}>
+                                    <Text style={[
+                                      styles.macroValue,
+                                      selectedMealId === food.fdcId && styles.selectedMacroValue
+                                    ]}>{food.nutrients.fat}g</Text>
+                                    <Text style={[
+                                      styles.macroLabel,
+                                      selectedMealId === food.fdcId && styles.selectedMacroLabel
+                                    ]}>fat</Text>
+                                  </View>
+                                </View>
+                                <TouchableOpacity 
+                                  style={styles.starButton}
+                                  onPress={() => toggleFavorite(food)}
+                                >
+                                  <MaterialCommunityIcons 
+                                    name={isFavorite(food.fdcId) ? "star" : "star-outline"} 
+                                    size={20} 
+                                    color={isFavorite(food.fdcId) ? "#FFB800" : "#666"} 
+                                  />
+                                </TouchableOpacity>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </React.Fragment>
+                      ));
+                    })()}
                   </View>
                 )}
-
-              {recentSearches.length > 0 && !searchQuery && (
-                <View style={styles.recentSearches}>
-                    <View style={styles.subsectionHeader}>
-                      <MaterialCommunityIcons name="history" size={16} color="#666" />
-                      <Text variant="bodySmall" style={styles.subsectionTitle}>Recent</Text>
-                    </View>
-                    <View style={styles.recentList}>
-                  {recentSearches.map((search, index) => (
-                        <TouchableOpacity
-                      key={index}
-                          style={styles.recentItem}
-                      onPress={() => {
-                        setSearchQuery(search);
-                        debouncedSearch(search);
-                      }}
-                        >
-                          <MaterialCommunityIcons name="history" size={18} color="#006A6A" />
-                          <Text style={styles.recentItemText} numberOfLines={1}>{search}</Text>
-                        </TouchableOpacity>
-                  ))}
-                    </View>
-                </View>
-              )}
-
-                {!searchQuery && (
-                  <>
-                    <View style={styles.suggestedCategories}>
-                      <View style={styles.subsectionHeader}>
-                        <MaterialCommunityIcons name="shape" size={16} color="#666" />
-                        <Text variant="bodySmall" style={styles.subsectionTitle}>Categories</Text>
-                      </View>
-                      <View style={styles.categoryGrid}>
-                        {[
-                          { icon: 'fruit-cherries' as keyof typeof MaterialCommunityIcons.glyphMap, label: 'Fruits', color: '#FF6B6B' },
-                          { icon: 'carrot' as keyof typeof MaterialCommunityIcons.glyphMap, label: 'Vegetables', color: '#51CF66' },
-                          { icon: 'food-steak' as keyof typeof MaterialCommunityIcons.glyphMap, label: 'Proteins', color: '#FF922B' },
-                          { icon: 'bread-slice' as keyof typeof MaterialCommunityIcons.glyphMap, label: 'Grains', color: '#FAB005' },
-                          { icon: 'cheese' as keyof typeof MaterialCommunityIcons.glyphMap, label: 'Dairy', color: '#748FFC' },
-                          { icon: 'cookie' as keyof typeof MaterialCommunityIcons.glyphMap, label: 'Snacks', color: '#CDB4DB' },
-                        ].map((category) => (
-                          <TouchableOpacity
-                            key={category.label}
-                            style={styles.categoryCard}
-                            onPress={() => {
-                              setSearchQuery(category.label);
-                              debouncedSearch(category.label);
-                            }}
-                          >
-                            <View style={[styles.categoryIcon, { backgroundColor: `${category.color}20` }]}>
-                              <MaterialCommunityIcons name={category.icon} size={24} color={category.color} />
-                            </View>
-                            <Text style={styles.categoryLabel}>{category.label}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    </View>
-
-                    <View style={styles.commonFoods}>
-                      <View style={styles.subsectionHeader}>
-                        <MaterialCommunityIcons name="star" size={16} color="#666" />
-                        <Text variant="bodySmall" style={styles.subsectionTitle}>Common Foods</Text>
-                      </View>
-                      <View style={styles.commonFoodsList}>
-                        {[
-                          { name: 'Banana', calories: '105', icon: 'food-apple' as keyof typeof MaterialCommunityIcons.glyphMap },
-                          { name: 'Chicken Breast', calories: '165', icon: 'food-drumstick' as keyof typeof MaterialCommunityIcons.glyphMap },
-                          { name: 'Greek Yogurt', calories: '100', icon: 'food-variant' as keyof typeof MaterialCommunityIcons.glyphMap },
-                          { name: 'Oatmeal', calories: '150', icon: 'bowl-mix' as keyof typeof MaterialCommunityIcons.glyphMap },
-                        ].map((food) => (
-                          <TouchableOpacity
-                            key={food.name}
-                            style={styles.commonFoodCard}
-                            onPress={() => {
-                              setSearchQuery(food.name);
-                              debouncedSearch(food.name);
-                            }}
-                          >
-                            <View style={styles.commonFoodIcon}>
-                              <MaterialCommunityIcons name={food.icon} size={20} color="#006A6A" />
-                            </View>
-                            <View style={styles.commonFoodInfo}>
-                              <Text style={styles.commonFoodName}>{food.name}</Text>
-                              <Text style={styles.commonFoodCalories}>{food.calories} cal</Text>
-                            </View>
-                            <MaterialCommunityIcons name="chevron-right" size={20} color="#666" />
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    </View>
-                  </>
-              )}
-
-              {searchResults.length > 0 && (
-                <View style={styles.searchResults}>
-                    <View style={styles.subsectionHeader}>
-                      <MaterialCommunityIcons name="food-apple" size={16} color="#666" />
-                      <Text variant="bodySmall" style={styles.subsectionTitle}>
-                        {searchResults.length} {searchResults.length === 1 ? 'result' : 'results'}
-                      </Text>
-                    </View>
-                    <View style={styles.resultsList}>
-                  {searchResults.map((food) => (
-                        <TouchableOpacity
-                      key={food.fdcId}
-                          style={styles.resultCard}
-                      onPress={() => handleFoodSelect(food)}
-                        >
-                          <View style={styles.resultHeader}>
-                            <View style={styles.foodIconContainer}>
-                              <MaterialCommunityIcons name="food" size={20} color="#006A6A" />
-                            </View>
-                            <Text style={styles.resultTitle} numberOfLines={2}>{food.description}</Text>
-                          </View>
-                          <View style={styles.macroGrid}>
-                            <View style={styles.macroItem}>
-                              <Text style={[
-                                styles.macroValue,
-                                selectedMealId === food.fdcId && styles.selectedMacroValue
-                              ]}>{food.nutrients.calories}</Text>
-                              <Text style={[
-                                styles.macroLabel,
-                                selectedMealId === food.fdcId && styles.selectedMacroLabel
-                              ]}>cal</Text>
-                            </View>
-                            <View style={[
-                              styles.macroDivider,
-                              selectedMealId === food.fdcId && styles.selectedMacroDivider
-                            ]} />
-                            <View style={styles.macroItem}>
-                              <Text style={[
-                                styles.macroValue,
-                                selectedMealId === food.fdcId && styles.selectedMacroValue
-                              ]}>{food.nutrients.protein}g</Text>
-                              <Text style={[
-                                styles.macroLabel,
-                                selectedMealId === food.fdcId && styles.selectedMacroLabel
-                              ]}>protein</Text>
-                            </View>
-                            <View style={[
-                              styles.macroDivider,
-                              selectedMealId === food.fdcId && styles.selectedMacroDivider
-                            ]} />
-                            <View style={styles.macroItem}>
-                              <Text style={[
-                                styles.macroValue,
-                                selectedMealId === food.fdcId && styles.selectedMacroValue
-                              ]}>{food.nutrients.carbs}g</Text>
-                              <Text style={[
-                                styles.macroLabel,
-                                selectedMealId === food.fdcId && styles.selectedMacroLabel
-                              ]}>carbs</Text>
-                            </View>
-                            <View style={[
-                              styles.macroDivider,
-                              selectedMealId === food.fdcId && styles.selectedMacroDivider
-                            ]} />
-                            <View style={styles.macroItem}>
-                              <Text style={[
-                                styles.macroValue,
-                                selectedMealId === food.fdcId && styles.selectedMacroValue
-                              ]}>{food.nutrients.fat}g</Text>
-                              <Text style={[
-                                styles.macroLabel,
-                                selectedMealId === food.fdcId && styles.selectedMacroLabel
-                              ]}>fat</Text>
-                            </View>
-                          </View>
-                          <TouchableOpacity 
-                            style={styles.starButton}
-                            onPress={() => toggleFavorite(food)}
-                          >
-                            <MaterialCommunityIcons 
-                              name={isFavorite(food.fdcId) ? "star" : "star-outline"} 
-                              size={20} 
-                              color={isFavorite(food.fdcId) ? "#FFB800" : "#666"} 
-                            />
-                          </TouchableOpacity>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                </View>
-              )}
               </>
             )}
 
@@ -1201,32 +1300,35 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    gap: 8,
+    padding: 32,
   },
   emptyStateText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '500',
-    color: '#333',
+    color: '#666',
+    marginTop: 12,
   },
   emptyStateSubtext: {
-    fontSize: 13,
-    color: '#666',
+    fontSize: 14,
+    color: '#999',
     textAlign: 'center',
-  },
-  foodList: {
-    gap: 12,
+    marginTop: 4,
   },
   foodCard: {
     backgroundColor: 'white',
     borderRadius: 12,
     padding: 12,
+    marginBottom: 8,
+    position: 'relative',
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#f0f0f0',
+  },
+  selectedFoodCard: {
+    backgroundColor: '#006A6A',
+    borderColor: '#006A6A',
+  },
+  foodList: {
+    marginBottom: 16,
   },
   foodCardHeader: {
     flexDirection: 'row',
@@ -1336,10 +1438,6 @@ const styles = StyleSheet.create({
     padding: 6,
     borderRadius: 6,
   },
-  selectedFoodCard: {
-    backgroundColor: '#006A6A',
-    borderColor: '#006A6A',
-  },
   selectedFoodIconContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
@@ -1357,5 +1455,45 @@ const styles = StyleSheet.create({
   },
   selectedMacroDivider: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  searchContainer: {
+    marginBottom: 16,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 16,
+  },
+  loadingText: {
+    color: '#006A6A',
+    fontSize: 14,
+  },
+  chipContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    backgroundColor: '#E7F5F5',
+    borderRadius: 12,
+    padding: 8,
+  },
+  categorySectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  categorySectionTitle: {
+    color: '#006A6A',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  categoryItemCount: {
+    color: '#666',
+    fontSize: 13,
+    fontWeight: '500',
   },
 }); 

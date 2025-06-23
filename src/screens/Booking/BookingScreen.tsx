@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
-import { StyleSheet, ScrollView, View, Image } from 'react-native';
-import { Text, Surface, Card, Button, IconButton, Chip } from 'react-native-paper';
+import { StyleSheet, ScrollView, View, Image, Dimensions, Platform } from 'react-native';
+import { Text, Surface, Card, Button, IconButton, Chip, useTheme, Divider } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import ConsultationForm from './components/ConsultationForm';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MorningPlans } from './components/MorningPlans';
+import { DietPlans } from './components/DietPlans';
 
-type BookingOption = 'consultation' | 'diet' | 'workout';
+type BookingOption = 'diet' | 'workout';
 
 const FeaturedPlans = () => {
+  const theme = useTheme();
+  
   const plans = [
     {
       id: '1',
@@ -42,8 +46,10 @@ const FeaturedPlans = () => {
 
   return (
     <View style={styles.featuredSection}>
-      <Text variant="headlineMedium" style={styles.featuredTitle}>Featured Plans</Text>
-      <Text variant="bodyLarge" style={styles.featuredSubtitle}>Transform your life with our specially curated programs</Text>
+      <Surface style={styles.sectionHeader} elevation={0}>
+        <Text variant="titleLarge" style={styles.featuredTitle}>Featured Plans</Text>
+        <Text variant="bodyMedium" style={styles.featuredSubtitle}>Transform your life with our specially curated programs</Text>
+      </Surface>
       
       <View style={styles.plansScrollContainer}>
         <ScrollView
@@ -56,18 +62,14 @@ const FeaturedPlans = () => {
         >
           {plans.map((plan) => (
             <View key={plan.id} style={styles.planCardContainer}>
-              <Surface style={styles.planCard}>
+              <Surface style={styles.planCard} elevation={0}>
                 <View style={styles.planCardInner}>
                   <Image
                     source={{ uri: plan.imageUrl }}
                     style={styles.planImage}
                     resizeMode="cover"
                   />
-                  <View style={styles.planContent}>
-                    <View style={styles.planHeader}>
-                      <Text variant="titleLarge" style={styles.planTitle} numberOfLines={1}>
-                        {plan.title}
-                      </Text>
+                  <View style={styles.planOverlay}>
                       <Chip 
                         compact 
                         style={styles.planTypeChip}
@@ -76,6 +78,10 @@ const FeaturedPlans = () => {
                         {plan.type}
                       </Chip>
                     </View>
+                  <View style={styles.planContent}>
+                    <Text variant="titleLarge" style={styles.planTitle} numberOfLines={1}>
+                      {plan.title}
+                    </Text>
                     
                     <Text style={styles.planDescription} numberOfLines={2}>
                       {plan.description}
@@ -84,7 +90,7 @@ const FeaturedPlans = () => {
                     <View style={styles.planFeatures}>
                       {plan.features.map((feature, index) => (
                         <View key={index} style={styles.featureRow}>
-                          <MaterialCommunityIcons name="check-circle" size={16} color="#1a73e8" />
+                          <MaterialCommunityIcons name="check-circle" size={16} color="#006A6A" />
                           <Text style={styles.featureText} numberOfLines={1}>
                             {feature}
                           </Text>
@@ -100,6 +106,8 @@ const FeaturedPlans = () => {
                       <Button
                         mode="contained"
                         style={styles.planButton}
+                        buttonColor="#006A6A"
+                        textColor="white"
                         labelStyle={styles.planButtonLabel}
                       >
                         Get Started
@@ -118,15 +126,9 @@ const FeaturedPlans = () => {
 
 const BookingScreen = () => {
   const [selectedOption, setSelectedOption] = useState<BookingOption | null>(null);
+  const theme = useTheme();
 
   const bookingOptions = [
-    {
-      id: 'consultation',
-      title: 'Nutrition Consultation',
-      description: 'Book a one-on-one session with a certified nutritionist',
-      icon: 'account-tie' as const,
-      color: '#4CAF50',
-    },
     {
       id: 'diet',
       title: 'Diet Plans',
@@ -145,46 +147,36 @@ const BookingScreen = () => {
 
   const renderContent = () => {
     switch (selectedOption) {
-      case 'consultation':
-        return <ConsultationForm />;
       case 'diet':
         return (
-          <View style={styles.comingSoon}>
-            <Text variant="titleMedium">Diet Plans Coming Soon</Text>
-            <Button
-              mode="outlined"
-              onPress={() => setSelectedOption(null)}
-              style={styles.backButton}
-            >
-              Go Back
-            </Button>
+          <View style={styles.dietPlans}>
+            <DietPlans />
           </View>
         );
       case 'workout':
         return (
-          <View style={styles.comingSoon}>
-            <Text variant="titleMedium">Workout Plans Coming Soon</Text>
-            <Button
-              mode="outlined"
-              onPress={() => setSelectedOption(null)}
-              style={styles.backButton}
-            >
-              Go Back
-            </Button>
+          <View style={styles.workoutPlans}>
+            <MorningPlans />
           </View>
         );
       default:
         return (
           <>
+            <Surface style={styles.sectionHeader} elevation={0}>
+              <Text variant="titleLarge" style={styles.sectionTitle}>Services</Text>
+              <Text variant="bodyMedium" style={styles.sectionSubtitle}>Select a service to get started</Text>
+            </Surface>
+            
             <View style={styles.optionsContainer}>
               {bookingOptions.map((option) => (
                 <Card
                   key={option.id}
                   style={styles.optionCard}
                   onPress={() => setSelectedOption(option.id as BookingOption)}
+                  mode="outlined"
                 >
                   <Card.Content style={styles.cardContent}>
-                    <View style={[styles.iconContainer, { backgroundColor: `${option.color}20` }]}>
+                    <View style={[styles.iconContainer, { backgroundColor: `${option.color}15` }]}>
                       <MaterialCommunityIcons
                         name={option.icon}
                         size={32}
@@ -202,7 +194,7 @@ const BookingScreen = () => {
                     <IconButton
                       icon="chevron-right"
                       size={24}
-                      iconColor="#666"
+                      iconColor={option.color}
                     />
                   </Card.Content>
                 </Card>
@@ -214,16 +206,25 @@ const BookingScreen = () => {
     }
   };
 
+  const { width: screenWidth } = Dimensions.get('window');
+
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.headerContainer}>
-        <Surface style={styles.headerSurface}>
-          <View style={styles.headerContent}>
-            <Text variant="headlineSmall" style={styles.headerText}>
-              Book & Purchase
+    <View style={styles.container}>
+      {/* Header */}
+      <Surface style={styles.header} elevation={0}>
+        <View style={styles.headerContent}>
+          <View style={styles.headerLeft}>
+          <Text style={styles.headerTitle}>
+            {selectedOption ? 
+              selectedOption === 'diet' ? 'Diet Plans' : 'Workout Plans' 
+              : 'Bookings & Plans'
+            }
             </Text>
-            <Text variant="bodyLarge" style={styles.subHeaderText}>
-              Schedule sessions or get personalized plans
+          <Text style={styles.headerSubtitle}>
+            {selectedOption ? 
+              'Personalized services to help you reach your goals' : 
+              'Schedule sessions or get personalized plans'
+            }
             </Text>
           </View>
           {selectedOption && (
@@ -232,103 +233,145 @@ const BookingScreen = () => {
               size={24}
               onPress={() => setSelectedOption(null)}
               style={styles.backIcon}
+              iconColor="#1A1A1A"
             />
           )}
+        </View>
         </Surface>
-      </View>
 
+      <ScrollView style={styles.content}>
       {renderContent()}
     </ScrollView>
+    </View>
   );
 };
+
+const { width: screenWidth } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f9f9f9',
   },
-  headerContainer: {
-    padding: 16,
-  },
-  headerSurface: {
-    padding: 16,
-    borderRadius: 16,
-    elevation: 2,
+  header: {
+    backgroundColor: '#FFFFFF',
+    paddingTop: Platform.OS === 'ios' ? 12 : 8,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
   },
   headerContent: {
-    gap: 4,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  headerText: {
-    color: '#006A6A',
-    fontWeight: 'bold',
+  headerLeft: {
+    flex: 1,
   },
-  subHeaderText: {
-    color: '#666',
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginBottom: 2,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: '#666666',
   },
   backIcon: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 0,
+    right: 0,
+  },
+  content: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 80,
+  },
+  sectionHeader: {
+    margin: 16,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: 'white',
+  },
+  sectionTitle: {
+    color: '#006A6A',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    color: '#666',
   },
   optionsContainer: {
-    padding: 16,
+    paddingHorizontal: 16,
+    marginBottom: 16,
     gap: 12,
   },
   optionCard: {
     borderRadius: 12,
-    elevation: 2,
+    borderColor: '#e0e0e0',
   },
   cardContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
     padding: 16,
   },
   iconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 16,
   },
   cardTextContainer: {
     flex: 1,
-    gap: 4,
   },
   cardTitle: {
     color: '#333',
-    fontWeight: '500',
+    fontWeight: '600',
+    marginBottom: 4,
   },
   cardDescription: {
     color: '#666',
     fontSize: 14,
   },
   comingSoon: {
-    flex: 1,
+    padding: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 32,
     gap: 16,
+  },
+  comingSoonTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#333',
+  },
+  comingSoonDescription: {
+    textAlign: 'center',
+    color: '#666',
+    marginBottom: 16,
   },
   backButton: {
     borderColor: '#006A6A',
+    marginTop: 16,
   },
   featuredSection: {
-    marginTop: 16,
     marginBottom: 32,
   },
   featuredTitle: {
-    color: '#333',
+    color: '#006A6A',
     fontWeight: '600',
-    marginBottom: 8,
-    paddingHorizontal: 16,
+    marginBottom: 4,
   },
   featuredSubtitle: {
     color: '#666',
-    marginBottom: 24,
-    paddingHorizontal: 16,
+    fontSize: 14,
   },
   plansScrollContainer: {
+    marginTop: 16,
     height: 480, // Fixed height for consistent card sizes
   },
   plansContainer: {
@@ -342,7 +385,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 460,
     borderRadius: 16,
-    elevation: 3,
   },
   planCardInner: {
     borderRadius: 16,
@@ -354,29 +396,30 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 160,
   },
+  planOverlay: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 2,
+  },
   planContent: {
     flex: 1,
     padding: 16,
     justifyContent: 'space-between',
   },
-  planHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
-  },
   planTitle: {
-    color: '#333',
+    color: '#006A6A',
     fontWeight: '600',
-    flex: 1,
+    marginBottom: 12,
   },
   planTypeChip: {
-    backgroundColor: '#e8f0fe',
-    height: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderRadius: 16,
   },
   planTypeText: {
     fontSize: 12,
+    fontWeight: '600',
+    color: '#006A6A',
   },
   planDescription: {
     fontSize: 14,
@@ -413,7 +456,7 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
   },
   planPrice: {
-    color: '#1a73e8',
+    color: '#006A6A',
     fontWeight: '600',
   },
   planDuration: {
@@ -421,11 +464,19 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   planButton: {
-    backgroundColor: '#1a73e8',
+    borderRadius: 8,
   },
   planButtonLabel: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  workoutPlans: {
+    flex: 1,
+    paddingBottom: 24,
+  },
+  dietPlans: {
+    flex: 1,
+    paddingBottom: 24,
   },
 });
 

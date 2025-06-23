@@ -11,6 +11,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Camera } from 'expo-camera';
 import { addMeal } from '../../services/supabase';
 import { format } from 'date-fns';
+import { ScannedMealDetails } from './components/ScannedMealDetails';
 
 // Define types
 type MessageRole = 'assistant' | 'user' | 'system';
@@ -107,6 +108,319 @@ const MEAL_CATEGORIES = {
   ],
   MEAL_OCCASION: ['weekday', 'weekend', 'special occasion', 'meal-prep', 'quick lunch', 'light dinner']
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f4f4f5',
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f4f4f5',
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  messagesContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  messagesContentContainer: {
+    padding: 12,
+    paddingTop: 8,
+    flexGrow: 1, // Allow content to grow
+  },
+  scannedMealContent: {
+    paddingBottom: 100, // Adjust this value as needed to prevent content from being hidden by the input area
+  },
+  messageRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    paddingHorizontal: 6,
+  },
+  userMessageContainer: {
+    justifyContent: 'flex-end',
+    marginLeft: 64,
+  },
+  aiMessageContainer: {
+    justifyContent: 'flex-start',
+    marginRight: 64,
+  },
+  avatar: {
+    marginRight: 8,
+    backgroundColor: '#10a37f',
+    borderRadius: 4,
+  },
+  botMessage: {
+    padding: 12,
+    paddingVertical: 8,
+    borderRadius: 18,
+    maxWidth: '100%',
+    backgroundColor: '#FFFFFF',
+    alignSelf: 'flex-start',
+    elevation: 0,
+    shadowColor: 'transparent',
+  },
+  userMessage: {
+    backgroundColor: '#f4f4f5',
+    alignSelf: 'flex-end',
+  },
+  aiMessage: {
+    backgroundColor: '#FFFFFF',
+    alignSelf: 'flex-start',
+  },
+  messageBubble: {
+    padding: 12,
+    paddingVertical: 8,
+    borderRadius: 18,
+    maxWidth: '100%',
+    backgroundColor: 'transparent',
+    elevation: 0,
+    shadowColor: 'transparent',
+  },
+  messageText: {
+    fontSize: 16,
+    lineHeight: 22,
+    letterSpacing: -0.2,
+    ...Platform.select({
+      ios: {
+        fontFamily: '-apple-system',
+      },
+      android: {
+        fontFamily: 'Roboto',
+      },
+    }),
+  },
+  userMessageText: {
+    color: '#1a1a1a',
+    fontWeight: '400',
+  },
+  aiMessageText: {
+    color: '#1a1a1a',
+    fontWeight: '400',
+  },
+  botMessageText: {
+    fontSize: 16,
+    lineHeight: 22,
+    letterSpacing: -0.2,
+  },
+  typingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    paddingLeft: 12,
+    backgroundColor: 'transparent',
+    alignSelf: 'flex-start',
+    gap: 6,
+  },
+  typingText: {
+    color: '#6b6b6b',
+    fontSize: 14,
+    letterSpacing: -0.1,
+  },
+  messageActions: {
+    marginTop: 16,
+    gap: 12,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    color: '#666',
+    marginBottom: 4,
+  },
+  mealTypeSelector: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 8,
+  },
+  mealTypeChip: {
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  selectedMealTypeChip: {
+    backgroundColor: '#E7F5F5',
+    borderColor: '#006A6A',
+  },
+  confirmButton: {
+    borderRadius: 20,
+    backgroundColor: '#006A6A',
+    flex: 1,
+    maxWidth: 120,
+    height: 40,
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    borderRadius: 20,
+    borderColor: '#006A6A',
+    flex: 1,
+    maxWidth: 120,
+    height: 40,
+    justifyContent: 'center',
+  },
+  buttonLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.25,
+    textAlign: 'center',
+    marginTop: 4,
+    paddingBottom: 2,
+  },
+  timestamp: {
+    display: 'none', // Hide timestamps to match ChatGPT design
+  },
+  quickActions: {
+    marginBottom: 6,
+  },
+  quickActionsContent: {
+    paddingHorizontal: 12,
+    gap: 6,
+  },
+  quickActionChip: {
+    backgroundColor: '#f5f5f5',
+    marginRight: 6,
+    height: 32,
+  },
+  selectedQuickActionChip: {
+    backgroundColor: '#E7F5F5',
+  },
+  quickActionText: {
+    color: '#666',
+    fontSize: 14,
+  },
+  selectedQuickActionText: {
+    color: '#006A6A',
+    fontWeight: '600',
+  },
+  cameraButton: {
+    margin: 0,
+    marginRight: 8,
+  },
+  inputContainer: {
+    backgroundColor: '#f4f4f5',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
+    paddingHorizontal: 12,
+    paddingTop: 6,
+    paddingBottom: 0,
+    width: '100%',
+    position: 'relative',
+    zIndex: 1,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingBottom: Platform.OS === 'ios' ? 4 : 8,
+  },
+  input: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    maxHeight: 80,
+    minHeight: 40,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  welcomeGradient: {
+    padding: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    width: '100%',
+    backgroundColor: '#f4f4f5',
+  },
+  emptyStateText: {
+    textAlign: 'center',
+    marginTop: 16,
+    color: '#1a1a1a',
+    fontSize: 15,
+    lineHeight: 22,
+    letterSpacing: -0.2,
+    fontWeight: '400',
+  },
+  responseContainer: {
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: 'white',
+    marginBottom: 16,
+  },
+  responseText: {
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
+    gap: 8,
+    width: '100%',
+    paddingHorizontal: 8,
+  },
+  actionButton: {
+    minWidth: 100,
+  },
+  messageContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    paddingHorizontal: 6,
+  },
+  header: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+    paddingTop: Platform.OS === 'ios' ? 8 : 4,
+    paddingBottom: 8,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    height: 44,
+  },
+  headerLeft: {
+    width: 32,
+  },
+  headerCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  headerRight: {
+    width: 32,
+    alignItems: 'flex-end',
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#000000',
+    marginTop: 2,
+  },
+  closeButton: {
+    margin: 0,
+  },
+  infoButton: {
+    margin: 0,
+  },
+  summaryContainer: {
+    marginTop: 16,
+    marginBottom: 16,
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+});
 
 export const ChatScreen = () => {
   const theme = useTheme();
@@ -497,61 +811,84 @@ export const ChatScreen = () => {
         setPhoto(result.assets[0].uri);
         setIsAnalyzing(true);
         
-        // Add the photo message to the chat
-        const photoMessage: Message = {
+        // Add a placeholder message for analyzing
+        const analyzingMessage: Message = {
           id: Date.now().toString(),
           text: '📸 Analyzing food photo...',
           isUser: true,
           timestamp: new Date(),
           category: 'nutrition',
         };
-        setMessages(prev => [...prev, photoMessage]);
+        setMessages(prev => [...prev, analyzingMessage]);
 
+        let retryCount = 0;
+        const maxRetries = 3;
+        const retryDelay = 2000; // 2 seconds
+
+        const analyzeWithRetry = async () => {
         try {
           const response = await aiService.analyzeFoodPhoto(result.assets[0].uri);
           
-          // Create meal data from the analyzed photo
           const mealData: MealData = {
-            name: response.name,
-            meal_type: selectedMealType,
+              name: response.name || 'Scanned Meal',
+              meal_type: 'lunch',
             date: format(new Date(), 'yyyy-MM-dd'),
-            calories: response.calories,
-            protein: response.protein,
-            carbs: response.carbs,
-            fat: response.fat,
-            serving_size: response.servingSize
+              calories: response.calories || 0,
+              protein: response.protein || 0,
+              carbs: response.carbs || 0,
+              fat: response.fat || 0,
+              serving_size: response.servingSize || '1 serving'
           };
 
-          // Set the meal data first so the UI can show the meal type selector
           setSuggestedMeal(mealData);
+            setMessages(prev => prev.filter(msg => msg.id !== analyzingMessage.id));
 
-          const aiMessage: Message = {
+          } catch (error: any) {
+            if (error.status === 429 && retryCount < maxRetries) {
+              retryCount++;
+              // Update the analyzing message to show retry status
+              setMessages(prev => prev.map(msg => 
+                msg.id === analyzingMessage.id 
+                  ? { ...msg, text: `📸 Analyzing food photo... (Retry ${retryCount}/${maxRetries})` }
+                  : msg
+              ));
+              
+              // Wait before retrying
+              await new Promise(resolve => setTimeout(resolve, retryDelay));
+              return analyzeWithRetry();
+            }
+            
+            // If we've exhausted retries or it's a different error
+            console.error('Error analyzing photo:', error);
+            const errorMessage: Message = {
             id: (Date.now() + 1).toString(),
-            text: response.description,
+              text: error.status === 429 
+                ? '🚫 Too many requests. Please wait a moment before trying again.'
+                : '🚫 Sorry, I couldn\'t analyze the food in the photo.',
             isUser: false,
             timestamp: new Date(),
             category: 'nutrition',
+            };
+            setMessages(prev => [...prev.filter(msg => msg.id !== analyzingMessage.id), errorMessage]);
+          }
           };
           
-          setMessages(prev => [...prev, aiMessage]);
+        await analyzeWithRetry();
+
+      }
         } catch (error) {
-          console.error('Photo Analysis Error:', error);
+      console.error('Error taking photo:', error);
           const errorMessage: Message = {
             id: (Date.now() + 1).toString(),
-            text: "I apologize, but I'm having trouble analyzing the photo. Please try again or describe the food in text.",
+        text: '🚫 Could not access camera or take photo.',
             isUser: false,
             timestamp: new Date(),
-            category: 'nutrition',
+        category: 'general',
           };
           setMessages(prev => [...prev, errorMessage]);
-          setSuggestedMeal(null); // Clear any suggested meal on error
-        }
-
+    } finally {
         setIsAnalyzing(false);
-      }
-    } catch (error) {
-      console.error('Camera Error:', error);
-      setSuggestedMeal(null); // Clear any suggested meal on error
+      setPhoto(null);
     }
   };
 
@@ -759,6 +1096,61 @@ export const ChatScreen = () => {
     return '2 servings';
   };
 
+  // Handle adding the suggested meal to the diary
+  const handleAddToDiary = async (mealType: string) => {
+    if (!suggestedMeal || !mealType) {
+       console.error('No suggested meal data or meal type selected.');
+       return;
+    }
+
+    setIsLoading(true); // Indicate loading while saving
+    try {
+      // Use the selected meal type from the ScannedMealDetails component
+      const mealToSave = { ...suggestedMeal, meal_type: mealType };
+      await addMeal(mealToSave);
+      
+      // Add a confirmation message to the chat
+      const confirmationMessage: Message = {
+        id: Date.now().toString(),
+        text: `✅ Added ${suggestedMeal.name} to your ${mealType} diary.`, // Use the name from suggestedMeal
+        isUser: false,
+        timestamp: new Date(),
+        category: 'nutrition',
+      };
+      setMessages(prev => [...prev, confirmationMessage]);
+
+      // Clear the suggested meal state
+      setSuggestedMeal(null);
+
+    } catch (error) {
+      console.error('Error adding meal to diary:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: '❌ Failed to add meal to diary. Please try again.',
+        isUser: false,
+        timestamp: new Date(),
+        category: 'nutrition',
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle canceling the suggested meal
+  const handleCancelSuggestedMeal = () => {
+    setSuggestedMeal(null);
+    // Optionally add a message indicating cancellation
+    const cancelMessage: Message = {
+      id: Date.now().toString(),
+      text: '❌ Meal analysis cancelled.',
+      isUser: false,
+      timestamp: new Date(),
+      category: 'nutrition',
+    };
+    setMessages(prev => [...prev, cancelMessage]);
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
@@ -787,20 +1179,20 @@ export const ChatScreen = () => {
                 <IconButton
                   icon="information"
                   size={24}
-                  onPress={() => {}}
+                  onPress={() => { /* TODO: Implement info modal */ }}
                   style={styles.infoButton}
                 />
               </View>
             </View>
           </Surface>
 
-          {/* Messages */}
+          {/* Messages or Scanned Meal Details */}
           <ScrollView
             ref={scrollViewRef}
             style={styles.messagesContainer}
             contentContainerStyle={[
-              styles.messagesContent,
-              messages.length === 0 && styles.emptyMessagesContent
+              styles.messagesContentContainer,
+              messages.length === 0 && !suggestedMeal && styles.emptyState,
             ]}
             onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
           >
@@ -817,12 +1209,31 @@ export const ChatScreen = () => {
                 </LinearGradient>
               </View>
             ) : (
-              messages.map(renderMessage)
+               <>
+                 {messages.map(renderMessage)}
+                 {suggestedMeal && (
+                   <View style={styles.summaryContainer}>
+                     <ScannedMealDetails 
+                       mealData={suggestedMeal}
+                       onAddToDiary={handleAddToDiary}
+                       onCancel={handleCancelSuggestedMeal}
+                     />
+                   </View>
+                 )}
+               </>
             )}
             {isTyping && (
               <View style={styles.typingIndicator}>
                 <ActivityIndicator size="small" color="#006A6A" />
                 <Text style={styles.typingText}>AI is typing...</Text>
+              </View>
+            )}
+            {isLoading && messages.length > 0 && (
+               <View style={styles.messageRow}>
+                <Avatar.Text size={24} label="AI" style={styles.avatar} />
+                <Surface style={styles.botMessage} elevation={1}>
+                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                </Surface>
               </View>
             )}
           </ScrollView>
@@ -888,10 +1299,11 @@ export const ChatScreen = () => {
             </View>
           </Surface>
 
-          {response && (
+          {/* Response container for meal plan suggestions */}
+          {response && !suggestedMeal && (
             <Surface style={styles.responseContainer} elevation={2}>
               <Text style={styles.responseText}>{response}</Text>
-              {suggestedMeal && (
+              {response.includes('Would you like me to add this meal to your diary?') && suggestedMeal && (
                 <>
                   <View style={styles.mealTypeSelector}>
                     {MEAL_TYPES.map((type) => (
@@ -918,7 +1330,7 @@ export const ChatScreen = () => {
                   <View style={styles.actionButtons}>
                     <Button
                       mode="contained"
-                      onPress={handleAddMeal}
+                      onPress={handleAddMealToDiary}
                       style={styles.actionButton}
                     >
                       Add to Diary
@@ -927,7 +1339,6 @@ export const ChatScreen = () => {
                       mode="outlined"
                       onPress={() => {
                         setResponse(null);
-                        setSuggestedMeal(null);
                       }}
                       style={styles.actionButton}
                     >
@@ -944,287 +1355,4 @@ export const ChatScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f4f4f5',
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#f4f4f5',
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  header: {
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
-    paddingTop: Platform.OS === 'ios' ? 8 : 4,
-    paddingBottom: 8,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    height: 44,
-  },
-  headerLeft: {
-    width: 32,
-  },
-  headerCenter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  headerRight: {
-    width: 32,
-    alignItems: 'flex-end',
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#000000',
-    marginTop: 2,
-  },
-  closeButton: {
-    margin: 0,
-  },
-  robotIcon: {
-    width: 24,
-    height: 24,
-    marginRight: 4,
-  },
-  infoButton: {
-    margin: 0,
-  },
-  messagesContainer: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  messagesContent: {
-    padding: 12,
-    paddingTop: 8,
-  },
-  emptyMessagesContent: {
-    flexGrow: 1,
-  },
-  messageContainer: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    paddingHorizontal: 6,
-  },
-  userMessageContainer: {
-    justifyContent: 'flex-end',
-    marginLeft: 64,
-  },
-  aiMessageContainer: {
-    justifyContent: 'flex-start',
-    marginRight: 64,
-  },
-  avatar: {
-    marginRight: 8,
-    backgroundColor: '#10a37f',
-    borderRadius: 4,
-  },
-  messageBubble: {
-    padding: 12,
-    paddingVertical: 8,
-    borderRadius: 18,
-    maxWidth: '100%',
-    backgroundColor: 'transparent',
-    elevation: 0,
-    shadowColor: 'transparent',
-  },
-  userMessage: {
-    backgroundColor: '#f4f4f5',
-    alignSelf: 'flex-end',
-  },
-  aiMessage: {
-    backgroundColor: '#FFFFFF',
-    alignSelf: 'flex-start',
-  },
-  messageText: {
-    fontSize: 16,
-    lineHeight: 22,
-    letterSpacing: -0.2,
-    ...Platform.select({
-      ios: {
-        fontFamily: '-apple-system',
-      },
-      android: {
-        fontFamily: 'Roboto',
-      },
-    }),
-  },
-  userMessageText: {
-    color: '#1a1a1a',
-    fontWeight: '400',
-  },
-  aiMessageText: {
-    color: '#1a1a1a',
-    fontWeight: '400',
-  },
-  timestamp: {
-    display: 'none', // Hide timestamps to match ChatGPT design
-  },
-  inputContainer: {
-    backgroundColor: '#f4f4f5',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
-    paddingHorizontal: 12,
-    paddingTop: 6,
-    paddingBottom: 0,
-    width: '100%',
-    position: 'relative',
-    zIndex: 1,
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingBottom: Platform.OS === 'ios' ? 4 : 8,
-  },
-  input: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    maxHeight: 80,
-    minHeight: 40,
-  },
-  quickActions: {
-    marginBottom: 6,
-  },
-  quickActionsContent: {
-    paddingHorizontal: 12,
-    gap: 6,
-  },
-  quickActionChip: {
-    backgroundColor: '#f5f5f5',
-    marginRight: 6,
-    height: 32,
-  },
-  selectedQuickActionChip: {
-    backgroundColor: '#E7F5F5',
-  },
-  quickActionText: {
-    color: '#666',
-    fontSize: 14,
-  },
-  selectedQuickActionText: {
-    color: '#006A6A',
-    fontWeight: '600',
-  },
-  cameraButton: {
-    margin: 0,
-    marginRight: 8,
-  },
-  typingIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
-    paddingLeft: 12,
-    backgroundColor: 'transparent',
-    alignSelf: 'flex-start',
-    gap: 6,
-  },
-  typingText: {
-    color: '#6b6b6b',
-    fontSize: 14,
-    letterSpacing: -0.1,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  welcomeGradient: {
-    padding: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    width: '100%',
-    backgroundColor: '#f4f4f5',
-  },
-  emptyStateText: {
-    textAlign: 'center',
-    marginTop: 16,
-    color: '#1a1a1a',
-    fontSize: 15,
-    lineHeight: 22,
-    letterSpacing: -0.2,
-    fontWeight: '400',
-  },
-  responseContainer: {
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: 'white',
-    marginBottom: 16,
-  },
-  responseText: {
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 12,
-    gap: 8,
-    width: '100%',
-    paddingHorizontal: 8,
-  },
-  actionButton: {
-    minWidth: 100,
-  },
-  messageActions: {
-    marginTop: 16,
-    gap: 12,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    color: '#666',
-    marginBottom: 4,
-  },
-  mealTypeSelector: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 8,
-  },
-  mealTypeChip: {
-    backgroundColor: '#f5f5f5',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  selectedMealTypeChip: {
-    backgroundColor: '#E7F5F5',
-    borderColor: '#006A6A',
-  },
-  confirmButton: {
-    borderRadius: 20,
-    backgroundColor: '#006A6A',
-    flex: 1,
-    maxWidth: 120,
-    height: 40,
-    justifyContent: 'center',
-  },
-  cancelButton: {
-    borderRadius: 20,
-    borderColor: '#006A6A',
-    flex: 1,
-    maxWidth: 120,
-    height: 40,
-    justifyContent: 'center',
-  },
-  buttonLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    letterSpacing: 0.25,
-    textAlign: 'center',
-    marginTop: 4,
-    paddingBottom: 2,
-  },
-}); 
+// ... existing code ...

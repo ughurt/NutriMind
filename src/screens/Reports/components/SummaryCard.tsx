@@ -1,92 +1,185 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Surface, Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Text, Surface, ProgressBar, useTheme } from 'react-native-paper';
 import { Meal } from '../../../hooks/useMeals';
-import { Goal } from '../../../hooks/useGoals';
 
-interface Props {
+interface SummaryCardProps {
   meals: Meal[];
-  goals: Goal[];
+  goals: any[];
 }
 
-export const SummaryCard = ({ meals, goals }: Props) => {
-  // Calculate totals
-  const totals = meals.reduce((acc, meal) => ({
-    calories: acc.calories + (meal.calories || 0),
-    protein: acc.protein + (meal.protein || 0),
-    carbs: acc.carbs + (meal.carbs || 0),
-    fat: acc.fat + (meal.fat || 0),
-  }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+export const SummaryCard = ({ meals, goals }: SummaryCardProps) => {
+  const theme = useTheme();
 
-  // Get goals
+  // Calculate total nutrients from meals
+  const nutritionSummary = meals.reduce(
+    (acc, meal) => {
+      return {
+        calories: acc.calories + Number(meal.calories || 0),
+        protein: acc.protein + Number(meal.protein || 0),
+        carbs: acc.carbs + Number(meal.carbs || 0),
+        fat: acc.fat + Number(meal.fat || 0),
+      };
+    },
+    { calories: 0, protein: 0, carbs: 0, fat: 0 }
+  );
+
+  // Get goals from provided goals array
   const calorieGoal = goals.find(g => g.type === 'calories')?.target || 2000;
   const proteinGoal = goals.find(g => g.type === 'protein')?.target || 150;
   const carbsGoal = goals.find(g => g.type === 'carbs')?.target || 250;
   const fatGoal = goals.find(g => g.type === 'fat')?.target || 70;
 
-  const nutritionItems = [
+  // Calculate progress percentages
+  const calorieProgress = nutritionSummary.calories / calorieGoal;
+  const proteinProgress = nutritionSummary.protein / proteinGoal;
+  const carbsProgress = nutritionSummary.carbs / carbsGoal;
+  const fatProgress = nutritionSummary.fat / fatGoal;
+
+  // Calculate macronutrient distribution
+  const totalMacroCalories = 
+    (nutritionSummary.protein * 4) + 
+    (nutritionSummary.carbs * 4) + 
+    (nutritionSummary.fat * 9);
+  
+  const macroDistribution = totalMacroCalories === 0 ? 
+    { protein: 0, carbs: 0, fat: 0 } : 
     {
-      label: 'Calories',
-      value: totals.calories,
+      protein: ((nutritionSummary.protein * 4) / totalMacroCalories) * 100,
+      carbs: ((nutritionSummary.carbs * 4) / totalMacroCalories) * 100,
+      fat: ((nutritionSummary.fat * 9) / totalMacroCalories) * 100,
+    };
+
+  const getProgressColor = (progress: number) => {
+    if (progress > 1) return '#FF5252';
+    if (progress > 0.9) return '#FFC107';
+    return '#4CAF50';
+  };
+
+  const nutrientItems = [
+    {
+      name: 'Calories',
+      current: nutritionSummary.calories,
       goal: calorieGoal,
       unit: 'kcal',
-      icon: 'fire',
-      color: '#FF9800',
+      progress: calorieProgress,
+      color: getProgressColor(calorieProgress),
     },
     {
-      label: 'Protein',
-      value: totals.protein,
+      name: 'Protein',
+      current: nutritionSummary.protein,
       goal: proteinGoal,
       unit: 'g',
-      icon: 'food-steak',
-      color: '#F44336',
+      progress: proteinProgress,
+      color: theme.colors.primary, 
     },
     {
-      label: 'Carbs',
-      value: totals.carbs,
+      name: 'Carbs',
+      current: nutritionSummary.carbs,
       goal: carbsGoal,
       unit: 'g',
-      icon: 'bread-slice',
-      color: '#4CAF50',
+      progress: carbsProgress,
+      color: theme.colors.secondary,
     },
     {
-      label: 'Fat',
-      value: totals.fat,
+      name: 'Fat',
+      current: nutritionSummary.fat,
       goal: fatGoal,
       unit: 'g',
-      icon: 'oil',
-      color: '#FFC107',
+      progress: fatProgress,
+      color: theme.colors.tertiary,
     },
   ];
 
   return (
-    <Surface style={styles.container}>
+    <Surface style={styles.container} elevation={2}>
       <Text variant="titleMedium" style={styles.title}>Nutrition Summary</Text>
-      <View style={styles.grid}>
-        {nutritionItems.map((item) => (
-          <View key={item.label} style={styles.gridItem}>
-            <MaterialCommunityIcons 
-              name={item.icon} 
-              size={24} 
-              color={item.color} 
-              style={styles.icon}
+      
+      <View style={styles.totalCaloriesContainer}>
+        <View style={styles.calorieDisplay}>
+          <Text style={styles.calorieValue}>{Math.round(nutritionSummary.calories)}</Text>
+          <Text style={styles.calorieUnit}>calories</Text>
+        </View>
+        <View style={styles.calorieGoalContainer}>
+          <Text style={styles.calorieGoalText}>
+            {Math.round((calorieProgress) * 100)}% of Daily Goal
+          </Text>
+          <View style={styles.calorieProgressBarContainer}>
+            <View 
+              style={[
+                styles.calorieProgressBar, 
+                { 
+                  width: `${Math.min(calorieProgress * 100, 100)}%`,
+                  backgroundColor: getProgressColor(calorieProgress)
+                }
+              ]} 
             />
-            <Text variant="titleMedium" style={styles.value}>
-              {item.value}/{item.goal} {item.unit}
-            </Text>
-            <Text variant="bodySmall" style={styles.label}>{item.label}</Text>
-            <View style={styles.progressBar}>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.macroDistributionContainer}>
+        <Text style={styles.sectionLabel}>Macronutrient Distribution</Text>
+        <View style={styles.macroBar}>
+          <View 
+            style={[
+              styles.macroSegment, 
+              { 
+                width: `${macroDistribution.protein}%`, 
+                backgroundColor: theme.colors.primary 
+              }
+            ]} 
+          />
+          <View 
+            style={[
+              styles.macroSegment, 
+              { 
+                width: `${macroDistribution.carbs}%`, 
+                backgroundColor: theme.colors.secondary 
+              }
+            ]} 
+          />
               <View 
                 style={[
-                  styles.progressFill,
+              styles.macroSegment, 
                   { 
-                    width: `${Math.min((item.value / item.goal) * 100, 100)}%`,
-                    backgroundColor: item.color,
+                width: `${macroDistribution.fat}%`, 
+                backgroundColor: theme.colors.tertiary 
                   }
                 ]} 
               />
+        </View>
+        <View style={styles.macroLegend}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendColor, { backgroundColor: theme.colors.primary }]} />
+            <Text style={styles.legendText}>Protein {Math.round(macroDistribution.protein)}%</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendColor, { backgroundColor: theme.colors.secondary }]} />
+            <Text style={styles.legendText}>Carbs {Math.round(macroDistribution.carbs)}%</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendColor, { backgroundColor: theme.colors.tertiary }]} />
+            <Text style={styles.legendText}>Fat {Math.round(macroDistribution.fat)}%</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.nutrientsContainer}>
+        <Text style={styles.sectionLabel}>Daily Goals Progress</Text>
+        {nutrientItems.map((item, index) => (
+          <View key={index} style={styles.nutrientRow}>
+            <View style={styles.nutrientHeader}>
+              <Text style={styles.nutrientName}>{item.name}</Text>
+              <Text style={styles.nutrientValues}>
+                {Math.round(item.current)} / {item.goal} {item.unit}
+              </Text>
             </View>
+            <ProgressBar
+              progress={Math.min(item.progress, 1)}
+              color={item.color}
+              style={styles.progressBar}
+            />
           </View>
         ))}
       </View>
@@ -98,40 +191,123 @@ const styles = StyleSheet.create({
   container: {
     margin: 16,
     padding: 16,
-    borderRadius: 12,
-    elevation: 2,
+    borderRadius: 16,
   },
   title: {
+    fontWeight: '600',
+    color: '#444',
     marginBottom: 16,
-    color: '#666',
   },
-  grid: {
+  totalCaloriesContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    margin: -8,
+    alignItems: 'center',
+    marginBottom: 24,
+    padding: 16,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
   },
-  gridItem: {
-    width: '50%',
-    padding: 8,
+  calorieDisplay: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#006A6A10',
+    borderRadius: 12,
+    padding: 12,
+    width: 110,
   },
-  icon: {
-    marginBottom: 4,
-  },
-  value: {
+  calorieValue: {
+    fontSize: 24,
     fontWeight: 'bold',
+    color: '#006A6A',
   },
-  label: {
-    color: '#666',
-    marginBottom: 4,
+  calorieUnit: {
+    fontSize: 14,
+    color: '#006A6A',
+    opacity: 0.8,
   },
-  progressBar: {
-    height: 4,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 2,
+  calorieGoalContainer: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  calorieGoalText: {
+    color: '#444',
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  calorieProgressBarContainer: {
+    height: 8,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
     overflow: 'hidden',
   },
-  progressFill: {
+  calorieProgressBar: {
     height: '100%',
-    borderRadius: 2,
+  },
+  macroDistributionContainer: {
+    marginBottom: 24,
+    padding: 16,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+  },
+  sectionLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
+    fontWeight: '500',
+  },
+  macroBar: {
+    flexDirection: 'row',
+    height: 24,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#E0E0E0',
+    marginBottom: 8,
+  },
+  macroSegment: {
+    height: '100%',
+  },
+  macroLegend: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  legendColor: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 6,
+  },
+  legendText: {
+    fontSize: 12,
+    color: '#666',
+  },
+  nutrientsContainer: {
+    padding: 16,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+  },
+  nutrientRow: {
+    marginBottom: 16,
+  },
+  nutrientHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  nutrientName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#444',
+  },
+  nutrientValues: {
+    fontSize: 14,
+    color: '#666',
+  },
+  progressBar: {
+    height: 8,
+    borderRadius: 4,
   },
 }); 

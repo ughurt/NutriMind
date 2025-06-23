@@ -12,9 +12,13 @@ export interface Meal {
   user_id: string;
   name: string;
   calories: number;
-  protein: number | null;
-  carbs: number | null;
-  fat: number | null;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+  sugar: number;
+  sodium: number;
+  cholesterol: number;
   meal_type: MealType;
   date: string;
   created_at: string;
@@ -80,15 +84,17 @@ export const useMeals = (initialDate: Date) => {
         id: meal.id,
         user_id: user.id,
         name: meal.name,
-        calories: meal.calories,
-        protein: meal.protein,
-        carbs: meal.carbs,
-        fat: meal.fat,
+        calories: Math.round(Number(meal.calories)),
+        protein: meal.protein !== null ? Math.round(Number(meal.protein)) : null,
+        carbs: meal.carbs !== null ? Math.round(Number(meal.carbs)) : null,
+        fat: meal.fat !== null ? Math.round(Number(meal.fat)) : null,
         meal_type: meal.meal_type,
         date: meal.date,
         created_at: meal.created_at,
         last_used: new Date().toISOString()
       };
+
+      console.log('Saving previous meal:', previousMeal);
 
       const { error } = await supabase
         .from('previous_meals')
@@ -137,10 +143,10 @@ export const useMeals = (initialDate: Date) => {
         .from('meals')
         .insert([{
           ...meal,
-          calories: Number(meal.calories),
-          protein: meal.protein ? Number(meal.protein) : 0,
-          carbs: meal.carbs ? Number(meal.carbs) : 0,
-          fat: meal.fat ? Number(meal.fat) : 0,
+          calories: Math.round(Number(meal.calories)),
+          protein: meal.protein ? Math.round(Number(meal.protein)) : null,
+          carbs: meal.carbs ? Math.round(Number(meal.carbs)) : null,
+          fat: meal.fat ? Math.round(Number(meal.fat)) : null,
           user_id: user.id,
           date: meal.date || format(new Date(), 'yyyy-MM-dd'),
         }])

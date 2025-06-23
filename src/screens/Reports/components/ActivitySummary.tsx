@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, Surface, ProgressBar } from 'react-native-paper';
+import { Text, Surface, ProgressBar, useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 
@@ -18,11 +18,37 @@ interface ActivitySummaryProps {
   dateFilter: 'today' | 'yesterday' | 'thisWeek' | 'lastWeek';
 }
 
-export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
+export const ActivitySummary: React.FC<ActivitySummaryProps> = React.memo(({
   stats,
   stepGoal,
   dateFilter,
 }) => {
+  const theme = useTheme();
+
+  // Memoize calculations to prevent unnecessary re-renders
+  const { 
+    avgSteps, 
+    avgDistance, 
+    avgCalories, 
+    goalProgress, 
+    progressColor, 
+    statItems,
+    summary,
+    isMultipleDays
+  } = React.useMemo(() => {
+    if (!stats.length || !stepGoal) {
+      return {
+        avgSteps: 0,
+        avgDistance: 0,
+        avgCalories: 0,
+        goalProgress: 0,
+        progressColor: '#FF5722',
+        statItems: [],
+        summary: { totalSteps: 0, totalDistance: 0, totalCalories: 0, count: 0 },
+        isMultipleDays: false,
+      };
+    }
+
   // Calculate averages and totals based on the date filter
   const summary = stats.reduce(
     (acc, stat) => ({
@@ -35,10 +61,20 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
   );
 
   const isMultipleDays = ['thisWeek', 'lastWeek'].includes(dateFilter);
-  const avgSteps = isMultipleDays ? Math.round(summary.totalSteps / summary.count) : summary.totalSteps;
-  const avgDistance = isMultipleDays ? summary.totalDistance / summary.count : summary.totalDistance;
-  const avgCalories = isMultipleDays ? Math.round(summary.totalCalories / summary.count) : summary.totalCalories;
-  const goalProgress = avgSteps / stepGoal;
+  const avgSteps = isMultipleDays ? Math.round(summary.totalSteps / (summary.count || 1)) : summary.totalSteps;
+  const avgDistance = isMultipleDays ? summary.totalDistance / (summary.count || 1) : summary.totalDistance;
+  const avgCalories = isMultipleDays ? Math.round(summary.totalCalories / (summary.count || 1)) : summary.totalCalories;
+  const goalProgress = avgSteps / (stepGoal || 1);
+
+  // Color based on percentage of goal
+  const getProgressColor = (progress: number) => {
+    if (progress >= 1) return '#4CAF50';
+    if (progress >= 0.7) return '#8BC34A';
+    if (progress >= 0.4) return '#FFC107';
+    return '#FF5722';
+  };
+
+  const progressColor = getProgressColor(goalProgress);
 
   const statItems = [
     {
@@ -61,35 +97,81 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
     },
   ];
 
+    return {
+      avgSteps,
+      avgDistance,
+      avgCalories,
+      goalProgress,
+      progressColor,
+      statItems,
+      summary,
+      isMultipleDays,
+    };
+  }, [stats, stepGoal, dateFilter]);
+
+  // Memoize the progress circle render
+  const renderProgressCircle = React.useMemo(() => (
+          <View style={styles.progressCircle}>
+            <View style={styles.progressInnerCircle}>
+              <Text style={styles.progressPercentage}>{Math.round(goalProgress * 100)}%</Text>
+            </View>
+            <View 
+              style={[
+                styles.progressArc,
+                { 
+                  borderColor: progressColor,
+                  transform: [
+                    { rotate: `-${90 - Math.min(goalProgress, 1) * 180}deg` }
+                  ]
+                }
+              ]} 
+            />
+          </View>
+  ), [goalProgress, progressColor]);
+
+  if (!stats.length || !stepGoal) {
+    return (
+      <View style={styles.container}>
+        <Surface style={styles.progressCard} elevation={2}>
+          <Text variant="titleMedium" style={styles.cardTitle}>No Activity Data</Text>
+        </Surface>
+      </View>
+    );
+  }
+
   return (
-    <Surface style={styles.container}>
-      <Text variant="titleMedium" style={styles.title}>Daily Activity</Text>
+    <View style={styles.container}>
+      <Surface style={styles.progressCard} elevation={2}>
+        <Text variant="titleMedium" style={styles.cardTitle}>Goal Progress</Text>
       
-      <View style={styles.progressContainer}>
-        <View style={styles.progressHeader}>
-          <Text variant="bodyLarge" style={styles.progressText}>
-            {Math.round(goalProgress * 100)}% of Goal
+        <View style={styles.progressContainer}>
+          {renderProgressCircle}
+          
+          <View style={styles.progressDetails}>
+            <Text variant="titleLarge" style={styles.stepsCount}>
+              {avgSteps.toLocaleString()}
           </Text>
+            <Text variant="bodyMedium" style={styles.stepsLabel}>steps</Text>
           <Text variant="bodySmall" style={styles.goalText}>
             Goal: {stepGoal.toLocaleString()} steps
           </Text>
         </View>
-        <ProgressBar
-          progress={Math.min(goalProgress, 1)}
-          color="#4CAF50"
-          style={styles.progressBar}
-        />
       </View>
+      </Surface>
+
+      <Surface style={styles.statsCard} elevation={2}>
+        <Text variant="titleMedium" style={styles.cardTitle}>Activity Stats</Text>
 
       <View style={styles.statsGrid}>
         {statItems.map((item, index) => (
           <View key={index} style={styles.statItem}>
+              <View style={[styles.iconContainer, { backgroundColor: `${item.color}20` }]}>
             <MaterialCommunityIcons
               name={item.icon as any}
-              size={24}
+                  size={28}
               color={item.color}
-              style={styles.icon}
             />
+              </View>
             <Text variant="titleLarge" style={styles.statValue}>
               {item.value}
             </Text>
@@ -102,45 +184,111 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
 
       {isMultipleDays && (
         <View style={styles.totalContainer}>
-          <Text variant="bodySmall" style={styles.totalText}>
-            Period Totals: {summary.totalSteps.toLocaleString()} steps • {summary.totalDistance.toFixed(1)} km • {summary.totalCalories.toLocaleString()} cal
+            <Text variant="titleSmall" style={styles.totalTitle}>
+              Period Totals
+            </Text>
+            <View style={styles.totalGrid}>
+              <View style={styles.totalItem}>
+                <Text variant="titleMedium" style={styles.totalValue}>
+                  {summary.totalSteps.toLocaleString()}
+                </Text>
+                <Text variant="bodySmall" style={styles.totalLabel}>steps</Text>
+              </View>
+              <View style={styles.totalSeparator} />
+              <View style={styles.totalItem}>
+                <Text variant="titleMedium" style={styles.totalValue}>
+                  {summary.totalDistance.toFixed(1)}
+                </Text>
+                <Text variant="bodySmall" style={styles.totalLabel}>km</Text>
+              </View>
+              <View style={styles.totalSeparator} />
+              <View style={styles.totalItem}>
+                <Text variant="titleMedium" style={styles.totalValue}>
+                  {summary.totalCalories.toLocaleString()}
           </Text>
+                <Text variant="bodySmall" style={styles.totalLabel}>calories</Text>
+              </View>
+            </View>
         </View>
       )}
     </Surface>
+    </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
-    elevation: 2,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
-  title: {
-    color: '#666',
+  progressCard: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  statsCard: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  cardTitle: {
+    fontWeight: '600',
+    color: '#444',
     marginBottom: 16,
   },
   progressContainer: {
-    marginBottom: 20,
-  },
-  progressHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-around',
     marginBottom: 8,
   },
-  progressText: {
-    color: '#4CAF50',
-    fontWeight: '600',
+  progressCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    position: 'relative',
+  },
+  progressInnerCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 2,
+  },
+  progressArc: {
+    position: 'absolute',
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 5,
+    borderTopColor: 'transparent',
+    borderRightColor: 'transparent',
+    transform: [{ rotate: '-90deg' }],
+  },
+  progressPercentage: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#444',
+  },
+  progressDetails: {
+    alignItems: 'center',
+  },
+  stepsCount: {
+    fontWeight: 'bold',
+    fontSize: 26,
+    color: '#006A6A',
+  },
+  stepsLabel: {
+    color: '#666',
+    marginBottom: 4,
   },
   goalText: {
     color: '#666',
-  },
-  progressBar: {
-    height: 8,
-    borderRadius: 4,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -152,8 +300,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
   },
-  icon: {
-    marginBottom: 4,
+  iconContainer: {
+    padding: 10,
+    borderRadius: 50,
+    marginBottom: 8,
   },
   statValue: {
     fontWeight: '600',
@@ -169,8 +319,29 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
   },
-  totalText: {
+  totalTitle: {
     color: '#666',
+    marginBottom: 12,
     textAlign: 'center',
+  },
+  totalGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  totalItem: {
+    alignItems: 'center',
+  },
+  totalValue: {
+    fontWeight: '600',
+    color: '#006A6A',
+  },
+  totalLabel: {
+    color: '#666',
+  },
+  totalSeparator: {
+    width: 1,
+    height: 30,
+    backgroundColor: '#E0E0E0',
   },
 }); 

@@ -1,6 +1,6 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Surface, Text, IconButton, Menu } from 'react-native-paper';
+import { StyleSheet, View, TouchableOpacity } from 'react-native';
+import { Surface, Text, IconButton } from 'react-native-paper';
 import { Meal } from '../../../hooks/useMeals';
 
 interface Props {
@@ -11,38 +11,61 @@ interface Props {
 
 export const MealCard = ({ meal, onEdit, onDelete }: Props) => {
   const [menuVisible, setMenuVisible] = React.useState(false);
+  const anchorRef = React.useRef<View>(null);
+
+  // Close menu when clicking outside
+  React.useEffect(() => {
+    if (!menuVisible) return;
+    const handlePress = (e: any) => {
+      setMenuVisible(false);
+    };
+    // Add a global touch listener
+    const sub = () => {
+      setMenuVisible(false);
+      return true;
+    };
+    if (menuVisible) {
+      // Only add on menu open
+      // @ts-ignore
+      const subscription = globalThis.addEventListener ? globalThis.addEventListener('touchstart', handlePress) : null;
+      return () => {
+        if (subscription && globalThis.removeEventListener) globalThis.removeEventListener('touchstart', handlePress);
+      };
+    }
+  }, [menuVisible]);
 
   return (
     <Surface style={styles.container}>
       <View style={styles.header}>
         <Text variant="titleMedium">{meal.name}</Text>
-        <Menu
-          visible={menuVisible}
-          onDismiss={() => setMenuVisible(false)}
-          anchor={
+        <View ref={anchorRef} style={{ position: 'relative' }}>
             <IconButton
               icon="dots-vertical"
-              onPress={() => setMenuVisible(true)}
+            onPress={() => setMenuVisible(v => !v)}
             />
-          }
-        >
-          <Menu.Item 
+          {menuVisible && (
+            <View style={styles.inlineMenu}>
+              <TouchableOpacity
+                style={styles.menuItem}
             onPress={() => {
               setMenuVisible(false);
               onEdit(meal);
             }} 
-            title="Edit"
-            leadingIcon="pencil"
-          />
-          <Menu.Item 
+              >
+                <Text style={styles.menuItemText}>Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuItem}
             onPress={() => {
               setMenuVisible(false);
               onDelete(meal.id);
             }} 
-            title="Delete"
-            leadingIcon="delete"
-          />
-        </Menu>
+              >
+                <Text style={styles.menuItemText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
       </View>
 
       <View style={styles.nutritionInfo}>
@@ -90,5 +113,28 @@ const styles = StyleSheet.create({
   },
   nutritionItem: {
     alignItems: 'center',
+  },
+  inlineMenu: {
+    position: 'absolute',
+    top: 40,
+    right: 0,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    minWidth: 120,
+    zIndex: 10,
+    paddingVertical: 4,
+  },
+  menuItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  menuItemText: {
+    fontSize: 16,
+    color: '#333',
   },
 }); 

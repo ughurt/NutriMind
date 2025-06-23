@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, TextInput, Button, HelperText, IconButton, Surface, Portal, Dialog, useTheme, SegmentedButtons } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Pressable, Dimensions } from 'react-native';
+import { Text, TextInput, Button, HelperText, IconButton, Surface, Portal, Dialog, useTheme, SegmentedButtons, Divider } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useGoals } from '../../../hooks/useGoals';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 
 type GoalType = 'calories' | 'protein' | 'carbs' | 'fat';
 
@@ -15,6 +16,7 @@ interface Goal {
 }
 
 interface Props {
+  visible: boolean;
   onDismiss: () => void;
   currentGoals: Goal[];
 }
@@ -76,7 +78,7 @@ const RECOMMENDED_RANGES = {
   fat: { min: 20, max: 200, unit: 'g' },
 };
 
-export const EditGoalsForm = ({ onDismiss, currentGoals }: Props) => {
+export const EditGoalsForm = ({ visible, onDismiss, currentGoals }: Props) => {
   const { updateGoals, loadGoals } = useGoals();
   const theme = useTheme();
   const [loading, setLoading] = useState(false);
@@ -199,26 +201,27 @@ export const EditGoalsForm = ({ onDismiss, currentGoals }: Props) => {
   };
 
   return (
-    <View style={styles.mainContainer}>
-      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.contentContainer}>
-        <View style={styles.header}>
-          <Text variant="titleLarge" style={styles.title}>Edit Daily Goals</Text>
-          <View style={styles.headerButtons}>
-            <IconButton
-              icon="refresh"
-              size={24}
-              onPress={resetToDefaults}
-            />
-            <IconButton
-              icon="lightning-bolt"
-              size={24}
-              onPress={() => setShowPresets(true)}
-            />
+    <Portal>
+      <Dialog visible={visible} onDismiss={onDismiss} style={styles.dialog}>
+        <LinearGradient
+          colors={['#E7F5F5', '#FFFFFF']}
+          style={styles.gradient}
+        >
+          <View style={styles.handle} />
+          
+          <View style={styles.titleContainer}>
+            <MaterialCommunityIcons name="target" size={24} color="#006A6A" />
+            <Text variant="titleLarge" style={styles.dialogTitle}>Daily Goals</Text>
           </View>
+
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            {/* Activity Level */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <MaterialCommunityIcons name="run" size={24} color="#006A6A" />
+                <Text variant="titleMedium" style={styles.sectionTitle}>Activity Level</Text>
         </View>
 
-        <Surface style={styles.activitySection} elevation={0}>
-          <Text variant="titleSmall" style={styles.sectionTitle}>Activity Level</Text>
           <SegmentedButtons
             value={activityLevel}
             onValueChange={setActivityLevel}
@@ -227,11 +230,20 @@ export const EditGoalsForm = ({ onDismiss, currentGoals }: Props) => {
               { value: 'moderate', label: 'Moderate' },
               { value: 'active', label: 'High' },
             ]}
+                style={styles.segmentedButtons}
           />
-        </Surface>
+            </View>
 
-        <Surface style={styles.macroDistribution} elevation={0}>
-          <Text variant="titleSmall" style={styles.sectionTitle}>Macronutrient Distribution</Text>
+            <Divider style={styles.divider} />
+
+            {/* Macro Distribution */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <MaterialCommunityIcons name="chart-pie" size={24} color="#006A6A" />
+                <Text variant="titleMedium" style={styles.sectionTitle}>Macronutrient Distribution</Text>
+              </View>
+              
+              <View style={styles.macroDistributionContainer}>
           <View style={styles.macroBar}>
             <View style={[styles.macroSegment, { width: `${macroDistribution.protein}%`, backgroundColor: theme.colors.primary }]} />
             <View style={[styles.macroSegment, { width: `${macroDistribution.carbs}%`, backgroundColor: theme.colors.secondary }]} />
@@ -242,19 +254,24 @@ export const EditGoalsForm = ({ onDismiss, currentGoals }: Props) => {
             <Text variant="bodySmall">Carbs {Math.round(macroDistribution.carbs)}%</Text>
             <Text variant="bodySmall">Fat {Math.round(macroDistribution.fat)}%</Text>
           </View>
-        </Surface>
-
-        {Object.entries(RECOMMENDED_RANGES).map(([type, range]) => (
-          <Surface key={type} style={styles.inputSurface} elevation={0}>
-            <View style={styles.inputContainer}>
-              <View style={styles.inputHeader}>
-                <Text style={styles.label}>{type.charAt(0).toUpperCase() + type.slice(1)} ({range.unit})</Text>
-                <IconButton
-                  icon="information"
-                  size={20}
-                  onPress={() => setShowInfo(type as GoalType)}
-                />
               </View>
+            </View>
+
+            <Divider style={styles.divider} />
+
+            {/* Nutrition Goals */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <MaterialCommunityIcons name="food-apple" size={24} color="#006A6A" />
+                <Text variant="titleMedium" style={styles.sectionTitle}>Nutrition Goals</Text>
+              </View>
+              
+              {Object.entries(RECOMMENDED_RANGES).map(([type, range]) => (
+                <View key={type} style={styles.goalInputContainer}>
+                  <Text variant="bodyLarge" style={styles.goalLabel}>
+                    {type.charAt(0).toUpperCase() + type.slice(1)} ({range.unit})
+                  </Text>
+                  
               <TextInput
                 value={values[type as GoalType]}
                 onChangeText={text => handleInputChange(type as GoalType, text)}
@@ -262,40 +279,58 @@ export const EditGoalsForm = ({ onDismiss, currentGoals }: Props) => {
                 mode="outlined"
                 error={!!errors[type as GoalType]}
                 style={styles.input}
-                right={<TextInput.Affix text={range.unit} />}
+                    outlineStyle={styles.inputOutline}
+                    right={
+                      <TextInput.Affix text={range.unit} />
+                    }
               />
-              <HelperText type="error" visible={!!errors[type as GoalType]}>
-                {errors[type as GoalType]}
-              </HelperText>
+                  
+                  {errors[type as GoalType] ? (
+                    <Text style={styles.errorText}>{errors[type as GoalType]}</Text>
+                  ) : (
               <Text variant="bodySmall" style={styles.rangeText}>
                 Recommended: {range.min} - {range.max} {range.unit}
               </Text>
+                  )}
+                </View>
+              ))}
+              
+              <Button 
+                mode="text"
+                onPress={() => setShowPresets(true)}
+                icon="lightning-bolt"
+                style={styles.presetButton}
+              >
+                Quick Presets
+              </Button>
             </View>
-          </Surface>
-        ))}
       </ScrollView>
 
-      <Surface style={styles.bottomBar} elevation={4}>
-        <View style={styles.buttons}>
+          <View style={styles.actions}>
+            <View style={styles.actionButtonContainer}>
           <Button 
+                onPress={onDismiss}
+                style={styles.actionButton}
+                textColor="#006A6A"
             mode="outlined" 
-            onPress={onDismiss} 
-            style={styles.button}
           >
             Cancel
           </Button>
+            </View>
+            <View style={styles.actionButtonContainer}>
           <Button 
             mode="contained" 
             onPress={handleSave}
             loading={loading}
-            style={[styles.button, styles.saveButton]}
+                style={[styles.actionButton, styles.saveButton]}
           >
-            Save Changes
+                Save
           </Button>
         </View>
-      </Surface>
+          </View>
+        </LinearGradient>
+      </Dialog>
 
-      <Portal>
         <Dialog visible={showPresets} onDismiss={() => setShowPresets(false)}>
           <Dialog.Title>Quick Presets</Dialog.Title>
           <Dialog.Content style={styles.dialogContent}>
@@ -320,6 +355,9 @@ export const EditGoalsForm = ({ onDismiss, currentGoals }: Props) => {
               ))}
             </ScrollView>
           </Dialog.Content>
+        <Dialog.Actions>
+          <Button onPress={() => setShowPresets(false)}>Cancel</Button>
+        </Dialog.Actions>
         </Dialog>
 
         <Dialog visible={!!showInfo} onDismiss={() => setShowInfo(null)}>
@@ -334,51 +372,87 @@ export const EditGoalsForm = ({ onDismiss, currentGoals }: Props) => {
           </Dialog.Actions>
         </Dialog>
       </Portal>
-    </View>
   );
 };
 
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+
 const styles = StyleSheet.create({
-  mainContainer: {
-    flex: 1,
-    backgroundColor: 'white',
-    minHeight: 500,
+  dialog: {
+    backgroundColor: 'transparent',
+    borderRadius: 28,
+    maxWidth: Math.min(screenWidth - 48, 400),
+    width: '90%',
+    alignSelf: 'center',
+    marginTop: 'auto',
+    marginBottom: 'auto',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
   },
-  scrollContainer: {
-    flex: 1,
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
-  contentContainer: {
-    padding: 20,
-    paddingBottom: 32,
-    flexGrow: 1,
+  gradient: {
+    borderRadius: 28,
+    overflow: 'hidden',
   },
-  header: {
+  handle: {
+    width: 32,
+    height: 4,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 8,
+  },
+  titleContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
-  title: {
+  dialogTitle: {
     color: '#006A6A',
+    fontWeight: '600',
+    marginLeft: 12,
   },
-  headerButtons: {
-    flexDirection: 'row',
+  content: {
+    paddingHorizontal: 24,
+    maxHeight: screenHeight * 0.6,
   },
-  activitySection: {
+  section: {
     marginBottom: 24,
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: '#f5f5f5',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   sectionTitle: {
-    marginBottom: 12,
-    color: '#666',
+    marginLeft: 12,
+    color: '#006A6A',
+    fontWeight: '600',
   },
-  macroDistribution: {
-    marginBottom: 24,
-    padding: 16,
+  segmentedButtons: {
+    backgroundColor: 'white',
     borderRadius: 12,
-    backgroundColor: '#f5f5f5',
+  },
+  macroDistributionContainer: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
   },
   macroBar: {
     flexDirection: 'row',
@@ -395,47 +469,65 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 8,
   },
-  inputSurface: {
-    marginBottom: 16,
+  goalInputContainer: {
+    marginBottom: 20,
+    backgroundColor: 'white',
+    borderRadius: 16,
     padding: 16,
-    borderRadius: 12,
-    backgroundColor: '#f5f5f5',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
   },
-  inputContainer: {
-    marginBottom: 0,
-  },
-  inputHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  label: {
-    color: '#666',
-    fontSize: 16,
+  goalLabel: {
+    fontWeight: '500',
     marginBottom: 8,
   },
   input: {
     backgroundColor: 'white',
+    height: 48,
+  },
+  inputOutline: {
+    borderRadius: 12,
+    borderColor: '#006A6A',
+  },
+  errorText: {
+    color: '#B00020',
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
   },
   rangeText: {
     color: '#666',
     marginTop: 4,
   },
-  bottomBar: {
-    backgroundColor: 'white',
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-    padding: 16,
-    width: '100%',
+  presetButton: {
+    alignSelf: 'center',
+    marginTop: 8,
   },
-  buttons: {
+  divider: {
+    marginVertical: 24,
+    height: 1,
+    backgroundColor: '#E0E0E0',
+  },
+  actions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    padding: 16,
+    paddingHorizontal: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
   },
-  button: {
-    flex: 1,
-    marginHorizontal: 6,
-    borderRadius: 25,
+  actionButtonContainer: {
+    width: '40%',
+  },
+  actionButton: {
+    borderRadius: 12,
+    borderColor: '#006A6A',
   },
   saveButton: {
     backgroundColor: '#006A6A',
